@@ -93,7 +93,7 @@ var redis = Redis.UseStandalone(option =>
 
 ## 🔗 Nuget
 | 包名 |  NuGet | 下次次数  |
-|--------------|  ------- |  ------- |  ----  |
+|--------------|  ------- |  ----  |
 | SharpRedis  | [![nuget](https://img.shields.io/nuget/v/SharpRedis.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis?groupby=Version) |
 
 ## 📡 命令管道使用方式
