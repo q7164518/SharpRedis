@@ -8,6 +8,10 @@ using SharpRedis.Commands;
 
 namespace SharpRedis
 {
+    /// <summary>
+    /// Redis LUA script action class
+    /// <para>Redis LUA脚本操作类</para>
+    /// </summary>
     public sealed partial class RedisScript : BaseType
     {
         internal RedisScript(BaseCall call) : base(call)

@@ -13,6 +13,10 @@ using System.Collections.Generic;
 
 namespace SharpRedis
 {
+    /// <summary>
+    /// Redis Stream action class
+    /// <para>Redis Stream操作类</para>
+    /// </summary>
     public sealed partial class RedisStream : BaseType
     {
         internal RedisStream(BaseCall call) : base(call)

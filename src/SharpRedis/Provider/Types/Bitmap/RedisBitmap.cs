@@ -10,6 +10,7 @@ namespace SharpRedis
 {
     /// <summary>
     /// Redis Bitmap
+    /// <para>Redis Bitmap类型操作类</para>
     /// </summary>
     public sealed partial class RedisBitmap : BaseType
     {

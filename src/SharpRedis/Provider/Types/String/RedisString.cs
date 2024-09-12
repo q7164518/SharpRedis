@@ -16,6 +16,7 @@ namespace SharpRedis
 {
     /// <summary>
     /// Redis string type
+    /// <para>Redis字符串操作类</para>
     /// </summary>
     public sealed partial class RedisString : BaseType
     {

@@ -9,6 +9,10 @@ using System.Collections.Generic;
 
 namespace SharpRedis
 {
+    /// <summary>
+    /// Redis Geospatial Indices
+    /// <para>Redis GEO(地理坐标) 操作类型</para>
+    /// </summary>
     public sealed partial class RedisGeospatialIndices : BaseType
     {
         internal RedisGeospatialIndices(BaseCall call) : base(call)
