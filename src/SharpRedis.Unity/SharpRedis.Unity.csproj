@@ -2,12 +2,12 @@
 
   <PropertyGroup>
 		<TargetFrameworks>netstandard2.0;netstandard2.1;net5.0;net6.0;net7.0;net8.0</TargetFrameworks>
-		<Title>SharpRedis.Autofac</Title>
-		<PackageId>SharpRedis.Autofac</PackageId>
+		<Title>SharpRedis.Unity</Title>
+		<PackageId>SharpRedis.Unity</PackageId>
 		<Version>0.0.7.0</Version>
 		<Authors>Kwong</Authors>
 		<Description>A pure asynchronous driver of high performance high throughput Redis driver for C#</Description>
-		<PackageTags>SharpRedis.Autofac;SharpRedis;sharpredis;Redis;redis;Redics;RedisClient;RedisHelper;csredis;csharpredis;redisclients;C#Redis;Kwong;kwong;q7164518</PackageTags>
+		<PackageTags>SharpRedis.Unity;SharpRedis;sharpredis;Redis;redis;Redics;RedisClient;RedisHelper;csredis;csharpredis;redisclients;C#Redis;Kwong;kwong;q7164518</PackageTags>
 		<CheckEolTargetFramework>false</CheckEolTargetFramework>
 		<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
@@ -34,8 +34,7 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 	<ItemGroup>
-	  <PackageReference Include="Autofac" Version="5.0.0" />
-	  <PackageReference Include="SharpRedis" Version="0.0.7" />
+		<PackageReference Include="SharpRedis" Version="0.0.7" />
+		<PackageReference Include="Unity" Version="5.11.10" />
 	</ItemGroup>
-
 </Project>
