@@ -1,39 +1,44 @@
 ﻿<h1 align="center">⚔️ SharpRedis</h1>
-
 <p align="center">
-  <b>SharpRedis</b> 是一个用 C# 实现的高性能 Redis 驱动，解决了开发者常见的痛点——<b>不再有 Timeout 的烦恼</b>，<b>不再有数据串包的困扰</b>，也没有低版本 .NET 无法使用的局限。如果你正在经历这些问题，赶快来试试 SharpRedis 吧！
+    <span>English</span> |  
+    <a href="./README_zh_cn.md">中文</a>
+</p>
+<p align="center">
+  <b>SharpRedis</b> is a high-performance Redis driver implemented in C#, designed to solve common developer pain points—<b>No more Timeout issues</b>, <b>No more data packet misalignment</b>, and no limitations on older .NET versions. If you're facing these problems, try SharpRedis today!
 </p>
 
 ---
 
-## ✨ 为什么选择 SharpRedis？
+## ✨ Why Choose SharpRedis?
 
-**SharpRedis** 拥有以下卓越特性，让你从容应对 Redis 的各种复杂需求：
+**SharpRedis** offers the following exceptional features to help you handle complex Redis needs with ease:
 
-- 🚀 **异步驱动**：完全基于异步编程模型，充分利用现代 .NET 的优势，提供极高的性能和响应速度。
-  
-- 🛠️ **广泛的框架支持**：从 **.NET Framework 3.0** 到 **.NET 8.0**，SharpRedis 几乎覆盖了所有 .NET 版本，为广泛的项目需求提供支持。
+- **🚀 Asynchronous Driver:** Fully based on an asynchronous programming model, taking full advantage of modern .NET capabilities to deliver high performance and responsiveness.
 
-- ⚡ **全异步事件驱动**：保证所有操作都通过异步事件处理，专为高并发场景而设计，确保在大流量和高吞吐量情况下依旧保持卓越性能。
+- **🛠️ Wide Framework Support:** From .NET Framework 3.0 to .NET 8.0, SharpRedis covers almost all .NET versions, making it suitable for a wide range of project requirements.
 
-- ✔️ **完美的异步支持**：自 **.NET Framework 4.0+** 开始，SharpRedis 的所有方法都支持异步操作，轻松处理复杂的非阻塞任务。
+- **⚡ Fully Asynchronous Event-Driven:** Ensures all operations are handled via asynchronous event processing, designed for high concurrency scenarios, maintaining top-tier performance even under heavy traffic and high throughput.
 
-- 🏎️ **Redis 本地缓存支持**：为高效读取操作而生，完全兼容 **Redis 6.x** 引入的本地缓存特性，显著提升数据访问速度。
+- **✔️ Perfect Asynchronous Support:** Since **.NET Framework 4.0+**, all SharpRedis methods support asynchronous operations, making it easy to handle complex non-blocking tasks.
 
-- 📦 **支持最新 Redis 命令**：SharpRedis 紧跟 Redis 版本更新，完美支持到 **Redis 7.4.0**，包括如 Hash 过期等最新命令，保持功能的最新状态。
+- **🏎️ Redis Local Caching Support:** Designed for efficient read operations, fully compatible with the local caching feature introduced in Redis 6.x, significantly improving data access speed.
 
-- 📡 **命令管道支持**：支持 Redis 的命令管道功能，一次性批量执行多个命令，大幅降低网络延迟，提升整体性能。
+- **📦 Supports Latest Redis Commands:** SharpRedis stays up to date with Redis version updates, fully supporting up to Redis 7.4.0, including the latest commands like Hash expiry, ensuring you're always working with the latest features.
 
-- 📡 **命令隔离**：命令不在混淆, 每个类型的命令都做了隔离, 如操作String需redis.String.Get..., 操作Hash需redis.Hash.HSet...
+- **📡 Pipeline Command Support:** Supports Redis's pipeline command feature, allowing you to execute multiple commands in batches, reducing network latency and improving overall performance.
 
-- ⏳ **灵活取消或超时**：所有方法都支持传入CancellationToken, 进行优雅取消操作
+- **🛡️ Command Isolation:** Commands are not mixed up; each command type is isolated. For example, use redis.String.Get... to operate on strings, and redis.Hash.HSet... to work with hashes.
+
+- **🐦‍🔥 Flexible Cancellation or Timeout:** All methods support the passing of a CancellationToken, allowing for graceful operation cancellations.
+
+- **🧮 Span\<char\> Support:** Span is a high-performance feature of .NET. If you've transformed a string into Span\<char\> for calculation or slicing, it can be directly stored in Redis without generating additional strings.
 ---
 
-## 💼 谁适合使用 SharpRedis？
+## 💼 Who Should Use SharpRedis?
 
-**SharpRedis** 是为所有 .NET 开发者打造的 Redis 客户端，旨在提供强大、灵活、高效的解决方案，尤其适用于需要异步编程、高并发处理的场景。无论是处理大规模的数据存储还是构建高效的分布式缓存，SharpRedis 都能为你提供理想的解决方案。
+**SharpRedis** is designed for all .NET developers as a Redis client, providing a powerful, flexible, and efficient solution, particularly suitable for scenarios that require asynchronous programming and high concurrency. Whether you're handling large-scale data storage or building an efficient distributed cache, SharpRedis offers an ideal solution.
 
-## 🚀 快速开始
+## 🚀 Quick Start
 ```csharp
 using SharpRedis;
 
@@ -42,47 +47,96 @@ redis.String.Set("key1", "key1");
 
 var get = redis.String.Get("key1");
 
-//redis.Hash 操作Hash
-//redis.PubSub 操作发布订阅
-//redis.Connection 操作连接, 目前支持的不多, 后续会增加
-//redis.List 操作List类型
-//redis.Bitmap 操作Bitmap类型 (虽然本质还是String, 单还是做了区分)
-//redis.Set 操作Set类型
-//redis.SortedSet 操作SortedSet类型
-//redis.Stream 操作Stream类型
-//redis.HyperLogLog 操作HyperLogLog类型
-//redis.Geospatial 操作GEO类型
-//redis.Script 操作LUA脚本和Function
-//redis.Key 操作Redis Key
-//redis.Server 操作Redis服务端, 支持的较少, 后续会增加完善
+// redis.Hash operates on Hashes
+// redis.PubSub operates on Publish/Subscribe
+// redis.Connection operates on connection (currently limited, more features will be added)
+// redis.List operates on Lists
+// redis.Bitmap operates on Bitmaps (though essentially strings, they are distinguished)
+// redis.Set operates on Sets
+// redis.SortedSet operates on Sorted Sets
+// redis.Stream operates on Streams
+// redis.HyperLogLog operates on HyperLogLogs
+// redis.Geospatial operates on GEO types
+// redis.Script operates on LUA scripts and functions
+// redis.Key operates on Redis keys
+// redis.Server operates on Redis server (currently limited, more features will be added)
 ```
 
-## ⚙️ 连接字符串配置项
+## 🚀 Using with Microsoft.Extensions.DependencyInjection
+```csharp
+// Install dependency
+// Install-Package SharpRedis.DependencyInjection
 
-| 配置项             | 默认值     | 说明|
-| :---------------- | --------: | :------------------- |
-| host            | 127.0.01      | Redis服务主机地址 |
-| port            | 6379          | Redis服务端口号 |
-| password        | null          | Redis密码, 没有设置密码不需要设置 |
-| user            | null          | Redis用户, 没有用户不需要设置 |
-| encoding        | utf-8         | 数据编码协议 |
-| connectname     | null          | 连接名称前缀 |
-| prefix          | null          | key前缀, 如果设置了, 所有操作中的Key都会加上此前缀 |
-| defaultdatabase | 0             | 默认连接数据库 |
-| maxpoolsize     | 100           | 连接池最大数量, 不建议设置超过300, 适量调整 |
-| minpoolsize     | 3             | 连接池最小数量, 不建议设置过大. 否则会一直保持大量连接 |
-| commandtimeout  | 60000         | 全局执行超时时间, 单位: 毫秒. 不建议调整. 可以使用方法的CancellationToken参数灵活控制 |
-| idletimeout     | 30000         | 连接空闲回收时间, 单位: 毫秒 |
-| subconcurrency  | 5             | 单个连接最多订阅数量, 超过该值, 新增的订阅将创建新连接 |
-| resp            | 2             | RESP协议版本, 只能是2或3. 3需要Redis6.x及以上才支持 |
-| buffer          | 4096 (4kb)    | 缓冲区大小, 不建议调整, 除非你的每次读取的redis数据都超过4kb |
+using SharpRedis.DependencyInjection;
 
-> 完整示例: host=127.0.0.1,port=6379,password=123456,user=redis,encoding=utf-8,connectname=abc,prefix=myprefix,defaultdatabase=0,maxpoolsize=100,minpoolsize=3,commandtimeout=60000,idletimeout=30000,subconcurrency=5,resp=3,buffer=4096
+// Register SharpRedis
+services.AddSharpRedisStandalone("host=127.0.0.1,port=6379");
+// Register SharpRedis with local cache support
+services.AddSharpRedisStandalone<LocalCache>("host=127.0.0.1,port=6379");
 
-> 配置项不分顺序先后
+// Named registration
+// Requires Microsoft.Extensions.DependencyInjection.Abstractions 8.0.0 or higher
+// The required NuGet package is SharpRedis.DependencyInjectionKeyedService
+// Install-Package SharpRedis.DependencyInjectionKeyedService
+services.AddSharpRedisStandalone("host=127.0.0.1,port=6379", serviceName: "named");
+```
 
-> 如果你不想使用连接字符串, 可以使用代码配置
+## 🚀 Using with Autofac
+```csharp
+// Install dependency
+// Install-Package SharpRedis.Autofac
 
+using SharpRedis.Autofac;
+
+// Register SharpRedis
+containerBuilder.AddSharpRedisStandalone("host=127.0.0.1,port=6379");
+// Register SharpRedis with local cache support
+containerBuilder.AddSharpRedisStandalone<LocalCache>("host=127.0.0.1,port=6379");
+
+// Named registration
+containerBuilder.AddSharpRedisStandalone("host=127.0.0.1,port=6379", serviceName: "named");
+```
+
+## 🚀 Using with Unity
+```csharp
+// Install dependency
+// Install-Package SharpRedis.Unity
+
+using SharpRedis.Unity;
+
+// Register SharpRedis
+unityContainer.AddSharpRedisStandalone("host=127.0.0.1,port=6379");
+// Register SharpRedis with local cache support
+unityContainer.AddSharpRedisStandalone<LocalCache>("host=127.0.0.1,port=6379");
+
+// Named registration
+unityContainer.AddSharpRedisStandalone("host=127.0.0.1,port=6379", serviceName: "named");
+```
+
+## ⚙️ Connection String Configuration
+| Option          | Default Value | Description|
+| --------------- | ------------- | ------------------- |
+| host            | 127.0.01      | Redis server host address |
+| port            | 6379          | Redis server port number |
+| password        | null          | Redis password (optional if not set) |
+| user            | null          | Redis user (optional if not set) |
+| encoding        | utf-8         | Data encoding protocol |
+| connectname     | null          | Connection name prefix |
+| prefix          | null          | Key prefix, applied to all key operations if set |
+| defaultdatabase | 0             | Default database connection |
+| maxpoolsize     | 100           | Maximum pool size; it's not recommended to exceed 300 |
+| minpoolsize     | 3             | Minimum pool size; it's not recommended to set this too high, as it will maintain many connections |
+| commandtimeout  | 60000         | Global execution timeout in milliseconds; flexible control via method's CancellationToken is recommended instead of adjusting this |
+| idletimeout     | 30000         | Idle connection reclaim time in milliseconds |
+| subconcurrency  | 5             | Maximum number of subscriptions per connection; additional subscriptions will create new connections |
+| resp            | 2             | RESP protocol version (2 or 3). Version 3 requires Redis 6.x or higher |
+| buffer          | 4096 (4kb)    | Buffer size, not recommended to adjust unless your Redis data exceeds 4kb per read |
+
+> Complete example: host=127.0.0.1,port=6379,password=123456,user=redis,encoding=utf-8,connectname=abc,prefix=myprefix,defaultdatabase=0,maxpoolsize=100,minpoolsize=3,commandtimeout=60000,idletimeout=30000,subconcurrency=5,resp=3,buffer=4096
+
+> Options can be in any order
+
+> If you don't want to use a connection string, you can configure it via code
 ```csharp
 var redis = Redis.UseStandalone(option =>
 {
@@ -92,11 +146,15 @@ var redis = Redis.UseStandalone(option =>
 ```
 
 ## 🔗 Nuget
-| 包名 |  NuGet | 下次次数  |
-|--------------|  ------- |  ----  |
-| SharpRedis  | [![nuget](https://img.shields.io/nuget/v/SharpRedis.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis?groupby=Version) |
+| Package                                    | NuGet | Downloads |
+|------------------------------------------- | -------- | ------ |
+| SharpRedis                                 | [![nuget](https://img.shields.io/nuget/v/SharpRedis.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis?groupby=Version) |
+| SharpRedis.Autofac                         | [![nuget](https://img.shields.io/nuget/v/SharpRedis.Autofac.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis.Autofac) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.Autofac.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis.Autofac?groupby=Version) |
+| SharpRedis.Unity                           | [![nuget](https://img.shields.io/nuget/v/SharpRedis.Unity.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis.Unity) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.Unity.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis.Unity?groupby=Version) |
+| SharpRedis.DependencyInjection             | [![nuget](https://img.shields.io/nuget/v/SharpRedis.DependencyInjection.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis.DependencyInjection) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.DependencyInjection.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis.DependencyInjection?groupby=Version) |
+| SharpRedis.DependencyInjectionKeyedService | [![nuget](https://img.shields.io/nuget/v/SharpRedis.DependencyInjectionKeyedService.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis.DependencyInjectionKeyedService) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.DependencyInjectionKeyedService.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis.DependencyInjectionKeyedService?groupby=Version) |
 
-## 📡 命令管道使用方式
+## 📡 Using Command Pipelining
 ```csharp
 using var pipe = redis.BeginPipelining();
 _ = pipe.String.Set("key", "value");
@@ -105,35 +163,35 @@ _ = pipe.Hash.HGet("hash", "field");
 var result = pipe.ExecutePipelining();
 ```
 
-## 📡 临时切换数据库
+## 📡 Temporary Database Switching
 ```csharp
 using var db = redis.SwitchDatabase(1);
 db.String.Get("key");
-//切库之后继续使用管道
+// After switching databases, you can continue to use pipelining
 using var pipe = db.BeginPipelining();
 ...
 var result = pipe.ExecutePipelining();
 ```
 
-## ⏳ 事务使用
+## ⏳ Using Transactions
 ```csharp
 using var tran = redis.UseTransaction();
 tran.String.Set("key", "value");
 ...
-var result = tran.Exec(); //执行事务
+var result = tran.Exec(); // Execute the transaction
 ```
 
-## 🏎️ 开启本地缓存支持
+## 🏎️ Enabling Local Cache Support
 ```csharp
 var redis = Redis.UseStandalone(option =>
 {
-	option.Host = "127.0.01";
-	option.Port = 6379;
-	option.Password = "123456";
-	option.SetClientSideCaching(new LocalCache());
+    option.Host = "127.0.0.1";
+    option.Port = 6379;
+    option.Password = "123456";
+    option.SetClientSideCaching(new LocalCache());
 });
 
-//需要自定义本地缓存实现
+// Custom local cache implementation
 public class LocalCache : ClientSideCachingStandard
 {
     private readonly MemoryCache _cache;
@@ -176,12 +234,13 @@ public class LocalCache : ClientSideCachingStandard
 }
 ```
 
-> ❤ 如果您觉得此项目给你提供了帮助, 您也可以选择进行捐赠. 您的捐赠是对我最大的支持. 感谢捐赠者 ❤
-### 支付宝
-<img src="./alipay.png" alt="支付宝" width="200" height="200">
+> ❤ If this project has been helpful to you, feel free to donate. Your donation is the greatest support I can receive. Thanks to all the donors ❤
 
-### 微信
-<img src="./wechat.png" alt="微信" width="200" height="200">
+### Alipay
+<img src="./alipay.png" alt="Alipay" width="200" height="200">
+
+### WeChat
+<img src="./wechat.png" alt="WeChat" width="200" height="200">
 
 ## 🗄 License
 
