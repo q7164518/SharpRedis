@@ -11,6 +11,7 @@ namespace SharpRedis
 {
     /// <summary>
     /// Redis HyperLogLog type
+    /// <para>Redis HyperLogLog操作类</para>
     /// </summary>
     public sealed partial class RedisHyperLogLog : BaseType
     {

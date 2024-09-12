@@ -13,6 +13,10 @@ using System;
 
 namespace SharpRedis
 {
+    /// <summary>
+    /// Redis connection operation class
+    /// <para>Redis连接操作类</para>
+    /// </summary>
     public sealed class RedisConnection : BaseType
     {
         internal RedisConnection(BaseCall call)

@@ -15,6 +15,10 @@ using System.Collections.Generic;
 
 namespace SharpRedis
 {
+    /// <summary>
+    /// Redis publishes subscription operations classes
+    /// <para>Redis发布订阅操作类</para>
+    /// </summary>
     public sealed partial class RedisPubSub : BaseType
     {
         internal RedisPubSub(BaseCall call) : base(call)

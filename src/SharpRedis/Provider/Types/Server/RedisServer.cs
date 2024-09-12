@@ -9,6 +9,10 @@ using System;
 
 namespace SharpRedis
 {
+    /// <summary>
+    /// Redis server operation class
+    /// <para>Redis服务端操作类</para>
+    /// </summary>
     public sealed partial class RedisServer : BaseType
     {
         internal RedisServer(BaseCall call) : base(call)

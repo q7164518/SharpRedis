@@ -15,7 +15,7 @@ namespace SharpRedis
 {
     /// <summary>
     /// Redis list type
-    /// <para>集合</para>
+    /// <para>Redis List操作类</para>
     /// </summary>
     public sealed partial class RedisList : BaseType
     {

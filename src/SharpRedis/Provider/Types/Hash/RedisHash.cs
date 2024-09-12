@@ -14,7 +14,7 @@ namespace SharpRedis
 {
     /// <summary>
     /// Hash
-    /// <para>Hash类型</para>
+    /// <para>Redis Hash类型操作类</para>
     /// </summary>
     public sealed partial class RedisHash : BaseType
     {
