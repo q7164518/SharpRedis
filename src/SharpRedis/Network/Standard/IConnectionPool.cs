@@ -22,8 +22,12 @@ namespace SharpRedis.Network.Standard
 
         #region Methods
         DefaultConnection GetMasterConnection(CancellationToken cancellationToken);
+
+        DefaultConnection GetSlaveConnection(CancellationToken cancellationToken);
 #if !LOW_NET
         Task<DefaultConnection> GetMasterConnectionAsync(CancellationToken cancellationToken);
+
+        Task<DefaultConnection> GetSlaveConnectionAsync(CancellationToken cancellationToken);
 #endif
 
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
@@ -37,6 +41,8 @@ namespace SharpRedis.Network.Standard
 #endif
 
         void ReturnMasterConnection(DefaultConnection connection);
+
+        void ReturnSlaveConnection(DefaultConnection connection);
 
         IConnection[] GetAllMasterConnections();
 

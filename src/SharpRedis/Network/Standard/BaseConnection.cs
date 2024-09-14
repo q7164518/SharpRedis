@@ -34,12 +34,12 @@ namespace SharpRedis.Network.Standard
         private protected bool _disposedValue;
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
         private protected byte[]? _prefix;
-        private protected volatile CommandPacket? _currentCommand;
-        private protected volatile CommandPacket[]? _currentCommands;
+        private protected CommandPacket? _currentCommand;
+        private protected CommandPacket[]? _currentCommands;
 #else
         private protected byte[] _prefix;
-        private protected volatile CommandPacket _currentCommand;
-        private protected volatile CommandPacket[] _currentCommands;
+        private protected CommandPacket _currentCommand;
+        private protected CommandPacket[] _currentCommands;
 #endif
         private protected AutoResetEvent _autoResetEvent;
         private protected bool _connected = false;
