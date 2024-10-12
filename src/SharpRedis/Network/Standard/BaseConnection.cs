@@ -110,47 +110,55 @@ namespace SharpRedis.Network.Standard
 
         public bool Connect()
         {
-            this._socketClient.Connect(this._connectionOptions.Host, this._connectionOptions.Port);
-            if (!this._socketClient.Connected)
+            try
             {
-                this.Dispose();
+                this._socketClient.Connect(this._connectionOptions.Host, this._connectionOptions.Port);
+                if (!this._socketClient.Connected)
+                {
+                    this.Dispose();
+                    return false;
+                }
+                this._connected = true;
+                this._socketClient.ReceiveAsync(this._receiveArgs);
+
+                if (this._connectionOptions.RespVersion is 3)
+                {
+                    if (!ConnectionExtensions.Hello(this, (RespVersion)this._connectionOptions.RespVersion, this._connectionOptions.User, this._connectionOptions.Password))
+                    {
+                        this.Dispose();
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (!ConnectionExtensions.Auth(this, this._connectionOptions.User, this._connectionOptions.Password))
+                    {
+                        this.Dispose();
+                        return false;
+                    }
+                    if (!ConnectionExtensions.SetClientName(this))
+                    {
+                        this.Dispose();
+                        return false;
+                    }
+                }
+                this._connectionId = ConnectionExtensions.ClientId(this);
+                if (this._currentDataBaseIndex != this._connectionOptions.DefaultDatabase)
+                {
+                    if (!ConnectionExtensions.Select(this, this._connectionOptions.DefaultDatabase))
+                    {
+                        this.Dispose();
+                        return false;
+                    }
+                    this._currentDataBaseIndex = this._connectionOptions.DefaultDatabase;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                SharpConsole.WriteError($"Connect Exception, message: {ex.Message}");
                 return false;
             }
-            this._connected = true;
-            this._socketClient.ReceiveAsync(this._receiveArgs);
-
-            if (this._connectionOptions.RespVersion is 3)
-            {
-                if (!ConnectionExtensions.Hello(this, (RespVersion)this._connectionOptions.RespVersion, this._connectionOptions.User, this._connectionOptions.Password))
-                {
-                    this.Dispose();
-                    return false;
-                }
-            }
-            else
-            {
-                if (!ConnectionExtensions.Auth(this, this._connectionOptions.User, this._connectionOptions.Password))
-                {
-                    this.Dispose();
-                    return false;
-                }
-                if (!ConnectionExtensions.SetClientName(this))
-                {
-                    this.Dispose();
-                    return false;
-                }
-            }
-            this._connectionId = ConnectionExtensions.ClientId(this);
-            if (this._currentDataBaseIndex != this._connectionOptions.DefaultDatabase)
-            {
-                if (!ConnectionExtensions.Select(this, this._connectionOptions.DefaultDatabase))
-                {
-                    this.Dispose();
-                    return false;
-                }
-                this._currentDataBaseIndex = this._connectionOptions.DefaultDatabase;
-            }
-            return true;
         }
 
         public bool SwitchDatabaseIndex(ushort databaseIndex)

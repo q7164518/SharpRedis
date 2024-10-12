@@ -440,18 +440,33 @@ namespace SharpRedis.Network.Standard
 
             while (true)
             {
+                if (this._idleAutoResetEvent.WaitOne(TimeSpan.FromSeconds(60))) return;
+                if (this._disposedValue) return;
                 try
                 {
-                    if (this._idleAutoResetEvent.WaitOne(TimeSpan.FromSeconds(60))) return;
-                    if (this._disposedValue) return;
                     this.IdleMasterConnections(delayMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    SharpConsole.WriteError($"Idle master exception, message: {ex.Message}");
+                }
+
+                try
+                {
                     this.IdleSlaveConnections(delayMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    SharpConsole.WriteError($"Idle slave exception, message: {ex.Message}");
+                }
+
+                try
+                {
                     this.IdleSubConnections();
                 }
                 catch (Exception ex)
                 {
-                    SharpConsole.WriteError($"Idle Exception, message: {ex.Message}");
-                    continue;
+                    SharpConsole.WriteError($"Idle PubSub exception, message: {ex.Message}");
                 }
             }
         }

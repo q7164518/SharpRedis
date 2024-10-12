@@ -5,7 +5,7 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <Title>SharpRedis</Title>
     <PackageId>SharpRedis</PackageId>
-    <Version>0.0.7.0</Version>
+    <Version>0.0.7.1</Version>
     <Authors>Kwong</Authors>
     <Description>A pure asynchronous driver of high performance high throughput Redis driver for C#</Description>
     <PackageTags>SharpRedis;sharpredis;Redis;redis;Redics;RedisClient;RedisHelper;csredis;csharpredis;redisclients;C#Redis;Kwong;kwong;q7164518</PackageTags>
@@ -17,7 +17,7 @@
     <PackageProjectUrl>https://github.com/q7164518/SharpRedis</PackageProjectUrl>
     <RepositoryUrl>https://github.com/q7164518/SharpRedis</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageReleaseNotes>The synchronization method supports CancellationToken</PackageReleaseNotes>
+    <PackageReleaseNotes>Connection pool optimization</PackageReleaseNotes>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <Nullable>enable</Nullable>
