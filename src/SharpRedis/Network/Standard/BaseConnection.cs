@@ -1,9 +1,6 @@
 ﻿#if NET8_0_OR_GREATER
 #pragma warning disable IDE0305
 #endif
-#if NET5_0_OR_GREATER
-#pragma warning disable IDE0090
-#endif
 #if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
 using AliasTaskCompletionSource = System.Threading.Tasks.TaskCompletionSource<object?>;
 #else
@@ -30,7 +27,7 @@ namespace SharpRedis.Network.Standard
 {
     internal abstract class BaseConnection : IConnection
     {
-        private protected static object _placeholderValue = new object();
+        private protected bool _currentIsSync = true;
         private protected bool _disposedValue;
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
         private protected byte[]? _prefix;
@@ -119,7 +116,7 @@ namespace SharpRedis.Network.Standard
                     return false;
                 }
                 this._connected = true;
-                this._socketClient.ReceiveAsync(this._receiveArgs);
+                _ = this._socketClient.ReceiveAsync(this._receiveArgs);
 
                 if (this._connectionOptions.RespVersion is 3)
                 {
@@ -261,7 +258,7 @@ namespace SharpRedis.Network.Standard
         {
             BaseConnection.ThrowIfCancellationRequested(timeout, cancellationToken);
             var sendArgs = this.GetSendArgs(command.ToResp(this._encoding, this._prefix));
-            this._receiveArgs.UserToken = BaseConnection._placeholderValue;
+            this._currentIsSync = true;
             try
             {
                 if (!this._socketClient.SendAsync(sendArgs)) sendArgs.Dispose();
@@ -270,7 +267,7 @@ namespace SharpRedis.Network.Standard
             {
                 this._connected = false;
                 this._receiveArgs.UserToken = ex;
-                this._autoResetEvent.Set();
+                _ = this._autoResetEvent.Set();
                 return;
             }
 
@@ -278,7 +275,7 @@ namespace SharpRedis.Network.Standard
             if ((command.Mode & CommandMode.WithoutResult) == CommandMode.WithoutResult)
             {
                 this._receiveArgs.UserToken = DBNull.Value;
-                this._autoResetEvent.Set();
+                _ = this._autoResetEvent.Set();
                 return;
             }
             this._currentCommand = command;
@@ -295,6 +292,7 @@ namespace SharpRedis.Network.Standard
             }
             var sendArgs = this.GetSendArgs(commandArrayBytes.ToArray());
             this._receiveArgs.UserToken = commands.Length;
+            this._currentIsSync = true;
             try
             {
                 if (!this._socketClient.SendAsync(sendArgs)) sendArgs.Dispose();
@@ -303,7 +301,7 @@ namespace SharpRedis.Network.Standard
             {
                 this._connected = false;
                 this._receiveArgs.UserToken = ex;
-                this._autoResetEvent.Set();
+                _ = this._autoResetEvent.Set();
                 return;
             }
             this._lastActiveTime = DateTime.UtcNow;
@@ -463,6 +461,7 @@ namespace SharpRedis.Network.Standard
             var tcs = new AliasTaskCompletionSource();
 #endif
             this._receiveArgs.UserToken = tcs;
+            this._currentIsSync = false;
             try
             {
                 if (!this._socketClient.SendAsync(sendArgs)) sendArgs.Dispose();
@@ -501,6 +500,7 @@ namespace SharpRedis.Network.Standard
             var tcs = new AliasTaskCompletionSource(commands.Length);
 #endif
             this._receiveArgs.UserToken = tcs;
+            this._currentIsSync = false;
             try
             {
                 if (!this._socketClient.SendAsync(sendArgs)) sendArgs.Dispose();
@@ -531,14 +531,14 @@ namespace SharpRedis.Network.Standard
             if (e.SocketError != SocketError.Success || e.BytesTransferred is 0)
             {
                 this._connected = false;
-                if (e.UserToken != null)
+                if (this._currentIsSync)
                 {
-                    if (object.ReferenceEquals(e.UserToken, BaseConnection._placeholderValue))
-                    {
-                        e.UserToken = new RedisConnectionException("Unexpected connection closure");
-                        return;
-                    }
+                    e.UserToken = new RedisConnectionException("Unexpected connection closure");
+                    return;
+                }
 #if !LOW_NET
+                else
+                {
                     if (e.UserToken is AliasTaskCompletionSource lastTcs)
                     {
                         lock (lastTcs)
@@ -548,22 +548,21 @@ namespace SharpRedis.Network.Standard
                         }
                         return;
                     }
-#endif
-                    e.UserToken = null;
-                    return;
                 }
+#endif
+                e.UserToken = null;
                 return;
             }
-            if (e.UserToken is null) goto Continue;
 
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
             this._dataPacket.Write(e.MemoryBuffer.Slice(e.Offset, e.BytesTransferred).Span);
 #else
             this._dataPacket.Write(e.Buffer, e.Offset, e.BytesTransferred);
 #endif
-            this._dataPacket.Seek(0, SeekOrigin.Begin);
+            _ = this._dataPacket.Seek(0, SeekOrigin.Begin);
 
             #region Sync
+            if (this._currentIsSync)
             {
                 if (e.UserToken is int pipeCommandCount)
                 {
@@ -581,31 +580,28 @@ namespace SharpRedis.Network.Standard
                         }
                         else
                         {
-                            this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
+                            _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
                             goto Continue;
                         }
                     }
                     this._dataPacket.SetLength(0);
                     e.UserToken = result;
-                    this._autoResetEvent.Set();
+                    _ = this._autoResetEvent.Set();
                     goto Continue;
                 }
                 else
                 {
-                    if (object.ReferenceEquals(BaseConnection._placeholderValue, e.UserToken))
+                    if (DataPacketExtensions.GetNextValue(this._dataPacket, this._encoding, this._currentCommand?.ResultDataType ?? ResultDataType.Bytes, out var data))
                     {
-                        if (DataPacketExtensions.GetNextValue(this._dataPacket, this._encoding, this._currentCommand?.ResultDataType ?? ResultDataType.Bytes, out var data))
-                        {
-                            this._dataPacket.SetLength(0);
-                            e.UserToken = data;
-                            this._autoResetEvent.Set();
-                            goto Continue;
-                        }
-                        else
-                        {
-                            this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
-                            goto Continue;
-                        }
+                        this._dataPacket.SetLength(0);
+                        e.UserToken = data;
+                        _ = this._autoResetEvent.Set();
+                        goto Continue;
+                    }
+                    else
+                    {
+                        _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
+                        goto Continue;
                     }
                 }
             }
@@ -613,6 +609,7 @@ namespace SharpRedis.Network.Standard
 
             #region Async
 #if !LOW_NET
+            else
             {
                 if (e.UserToken is AliasTaskCompletionSource tcs)
                 {
@@ -632,7 +629,7 @@ namespace SharpRedis.Network.Standard
                             }
                             else
                             {
-                                this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
+                                _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
                                 goto Continue;
                             }
                         }
@@ -656,7 +653,7 @@ namespace SharpRedis.Network.Standard
                         }
                         else
                         {
-                            this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
+                            _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
                             goto Continue;
                         }
                     }
@@ -747,7 +744,6 @@ namespace SharpRedis.Network.Standard
             this._autoResetEvent = null;
             this._currentCommand = null;
             this._currentCommands = null;
-            BaseConnection._placeholderValue = null;
         }
 
         public void Dispose()
