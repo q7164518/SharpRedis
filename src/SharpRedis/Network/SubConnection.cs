@@ -56,14 +56,14 @@ namespace SharpRedis.Network
             if (e.SocketError != SocketError.Success || e.BytesTransferred is 0)
             {
                 this._connected = false;
-                if (e.UserToken != null)
+                if (base._currentIsSync)
                 {
-                    if (object.ReferenceEquals(e.UserToken, BaseConnection._placeholderValue))
-                    {
-                        e.UserToken = new RedisConnectionException("Unexpected connection closure");
-                        return;
-                    }
+                    e.UserToken = new RedisConnectionException("Unexpected connection closure");
+                    return;
+                }
 #if !LOW_NET
+                else
+                {
                     if (e.UserToken is AliasTaskCompletionSource lastTcs)
                     {
                         lock (lastTcs)
@@ -73,10 +73,9 @@ namespace SharpRedis.Network
                         }
                         return;
                     }
-#endif
-                    e.UserToken = null;
-                    return;
                 }
+#endif
+                e.UserToken = null;
                 return;
             }
 
@@ -85,13 +84,13 @@ namespace SharpRedis.Network
 #else
             base._dataPacket.Write(e.Buffer, e.Offset, e.BytesTransferred);
 #endif
-            base._dataPacket.Seek(0, SeekOrigin.Begin);
+            _ = base._dataPacket.Seek(0, SeekOrigin.Begin);
 
             while (true)
             {
                 if (!DataPacketExtensions.GetNextValue(this._dataPacket, base._encoding, ResultDataType.Bytes, out var data))
                 {
-                    this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
+                    _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
                     break;
                 }
                 if (base._dataPacket.Position == base._dataPacket.Length) base._dataPacket.SetLength(0);
@@ -216,21 +215,23 @@ namespace SharpRedis.Network
                         }
                         else
                         {
-                            if (e.UserToken is null) continue;
-                            if (object.ReferenceEquals(BaseConnection._placeholderValue, e.UserToken))
+                            if (base._currentIsSync)
                             {
                                 e.UserToken = array[1];
-                                this._autoResetEvent.Set();
+                                _ = base._autoResetEvent.Set();
                                 continue;
                             }
 #if !LOW_NET
-                            if (e.UserToken is AliasTaskCompletionSource tcs)
+                            else
                             {
-                                lock (tcs)
+                                if (e.UserToken is AliasTaskCompletionSource tcs)
                                 {
-                                    if (tcs.Task.Status == TaskStatus.WaitingForActivation)
+                                    lock (tcs)
                                     {
-                                        tcs.SetResult(array[1]);
+                                        if (tcs.Task.Status == TaskStatus.WaitingForActivation)
+                                        {
+                                            tcs.SetResult(array[1]);
+                                        }
                                     }
                                 }
                             }
@@ -240,20 +241,22 @@ namespace SharpRedis.Network
                 }
                 else
                 {
-                    if (e.UserToken is null) continue;
-                    if (object.ReferenceEquals(BaseConnection._placeholderValue, e.UserToken))
+                    if (base._currentIsSync)
                     {
                         e.UserToken = data;
-                        this._autoResetEvent.Set();
+                        _ = this._autoResetEvent.Set();
                     }
 #if !LOW_NET
-                    if (e.UserToken is AliasTaskCompletionSource tcs)
+                    else
                     {
-                        lock (tcs)
+                        if (e.UserToken is AliasTaskCompletionSource tcs)
                         {
-                            if (tcs.Task.Status == TaskStatus.WaitingForActivation)
+                            lock (tcs)
                             {
-                                tcs.SetResult(data);
+                                if (tcs.Task.Status == TaskStatus.WaitingForActivation)
+                                {
+                                    tcs.SetResult(data);
+                                }
                             }
                         }
                     }

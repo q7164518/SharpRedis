@@ -1,4 +1,6 @@
-﻿namespace SharpRedis
+﻿#pragma warning disable IDE0130
+
+namespace SharpRedis
 {
     public interface IBitFieldArgOffset<T>
     {

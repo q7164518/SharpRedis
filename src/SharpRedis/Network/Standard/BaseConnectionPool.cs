@@ -99,7 +99,6 @@ namespace SharpRedis.Network.Standard
             {
                 IsBackground = true
             };
-            this._idleThread.Start();
         }
         #endregion
 
@@ -124,10 +123,7 @@ namespace SharpRedis.Network.Standard
             var connection = new DefaultConnection(this._encoding, this._masterConnectionOptions, this._prefix);
             if (!connection.Connect())
             {
-                _ = Interlocked.Decrement(ref this._masterConnectionCount);
-                connection.Dispose();
-                connection = null;
-                return connection;
+                goto RetunNull;
             }
 
             //tracking
@@ -163,6 +159,7 @@ namespace SharpRedis.Network.Standard
                 return connection;
             }
 
+            RetunNull:
             _ = Interlocked.Decrement(ref this._masterConnectionCount);
             connection.Dispose();
             connection = null;
@@ -224,6 +221,8 @@ namespace SharpRedis.Network.Standard
                 return syncWait.Connection;
             }
         }
+
+        public abstract DefaultConnection GetSlaveConnection(CancellationToken cancellationToken);
 
         public SubConnection GetSubConnection()
         {
@@ -351,6 +350,8 @@ namespace SharpRedis.Network.Standard
             ReturnConnection:
             this._masterConnections?.Push(connection);
         }
+
+        public abstract void ReturnSlaveConnection(DefaultConnection connection);
         #endregion
 
         #region Async Methods
@@ -421,6 +422,8 @@ namespace SharpRedis.Network.Standard
                 throw;
             }
         }
+
+        public abstract Task<DefaultConnection> GetSlaveConnectionAsync(CancellationToken cancellationToken);
 #endif
         #endregion
 
@@ -437,23 +440,38 @@ namespace SharpRedis.Network.Standard
 
             while (true)
             {
+                if (this._idleAutoResetEvent.WaitOne(TimeSpan.FromSeconds(60))) return;
+                if (this._disposedValue) return;
                 try
                 {
-                    if (this._idleAutoResetEvent.WaitOne(TimeSpan.FromSeconds(60))) return;
-                    if (this._disposedValue) return;
                     this.IdleMasterConnections(delayMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    SharpConsole.WriteError($"Idle master exception, message: {ex.Message}");
+                }
+
+                try
+                {
                     this.IdleSlaveConnections(delayMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    SharpConsole.WriteError($"Idle slave exception, message: {ex.Message}");
+                }
+
+                try
+                {
                     this.IdleSubConnections();
                 }
                 catch (Exception ex)
                 {
-                    SharpConsole.WriteError($"Idle Exception, message: {ex.Message}");
-                    continue;
+                    SharpConsole.WriteError($"Idle PubSub exception, message: {ex.Message}");
                 }
             }
         }
 
-        public virtual void IdleMasterConnections(int delayMilliseconds)
+        public void IdleMasterConnections(int delayMilliseconds)
         {
             if (this._masterConnections is null || this._allConnections.IsEmpty) return;
 
@@ -572,7 +590,7 @@ namespace SharpRedis.Network.Standard
 
         public virtual void IdleSlaveConnections(int delayMilliseconds) { }
 
-        public virtual void IdleSubConnections()
+        public void IdleSubConnections()
         {
             if (this._subConnections is null || this._subConnections.IsEmpty) return;
 

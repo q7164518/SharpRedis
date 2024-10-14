@@ -31,6 +31,11 @@ namespace SharpRedis
         {
         }
 
+        private Redis(ConnectionOptions connectionOptions, ConnectionOptions[] slaveConnectionOptions)
+            : this(new MasterSlavePool(connectionOptions, slaveConnectionOptions), RedisServerMode.MasterSlave)
+        {
+        }
+
         private Redis(IConnectionPool connectionPool, RedisServerMode serverMode)
             : base(Redis.CreateCall(connectionPool, serverMode))
         {
@@ -44,8 +49,8 @@ namespace SharpRedis
             switch (serverMode)
             {
                 case RedisServerMode.Standalone: tcall = new DefaultCall(connectionPool); break;
+                case RedisServerMode.MasterSlave: tcall = new MasterSlaveCall(connectionPool); break;
                 //case RedisServerMode.Sentinel:
-                //case RedisServerMode.MasterSlave: tcall = new MasterSlaveCall(connectionPool); break;
                 //case RedisServerMode.Cluster:
                 default: tcall = new DefaultCall(connectionPool); break;
             }
@@ -89,7 +94,7 @@ namespace SharpRedis
             base.SetCall(call);
         }
 
-        #region Created SharpRedis
+        #region Created Standalone SharpRedis
         /// <summary>
         /// Connect to singleton Redis
         /// <para>连接单例Redis</para>
@@ -130,6 +135,71 @@ namespace SharpRedis
         {
             return Redis.UseStandalone(string.Empty, optionsAction);
         }
-#endregion
+        #endregion
+
+        #region Created Master-Slave SharpRedis
+        /// <summary>
+        /// Connect to master-slave Redis
+        /// <para>连接主从Redis</para>
+        /// </summary>
+        /// <param name="masterConnectionString">Master node connection string
+        /// <para>Redis主节点连接字符串</para>
+        /// </param>
+        /// <param name="slaveConnectionStrings">Slave node connection string
+        /// <para>Redis从节点连接字符串</para>
+        /// </param>
+        /// <param name="optionsAction">The first parameter configures the object for the primary node and the second parameter configures the object for the secondary node
+        /// <para>第一个参数为主节点配置对象, 第二个参数为从节点配置对象</para>
+        /// </param>
+        /// <returns></returns>
+#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+        public static Redis UseMasterSlave(string masterConnectionString, string[] slaveConnectionStrings, Action<ConnectionOptions, ConnectionOptions[]>? optionsAction = null)
+#else
+        public static Redis UseMasterSlave(string masterConnectionString, string[] slaveConnectionStrings, Action<ConnectionOptions, ConnectionOptions[]> optionsAction = null)
+#endif
+        {
+            ConnectionOptions masterConnectionOptions;
+            var slaveConnectionOptions = new ConnectionOptions[slaveConnectionStrings.Length];
+            if (string.IsNullOrEmpty(masterConnectionString))
+            {
+                masterConnectionOptions = new ConnectionOptions();
+            }
+            else
+            {
+                masterConnectionOptions = new ConnectionOptions(masterConnectionString);
+            }
+            for (int i = 0; i < slaveConnectionStrings.Length; i++)
+            {
+                if (string.IsNullOrEmpty(slaveConnectionStrings[i]))
+                {
+                    slaveConnectionOptions[i] = new ConnectionOptions();
+                }
+                else
+                {
+                    slaveConnectionOptions[i] = new ConnectionOptions(slaveConnectionStrings[i]);
+                }
+            }
+            optionsAction?.Invoke(masterConnectionOptions, slaveConnectionOptions);
+            var redis = new Redis(masterConnectionOptions, slaveConnectionOptions);
+            masterConnectionOptions.UseClientSideCaching(redis);
+            return redis;
+        }
+
+        /// <summary>
+        /// Connect to master-slave Redis
+        /// <para>连接主从Redis</para>
+        /// </summary>
+        /// <param name="slaveCount">Slave node count
+        /// <para>从节点数量</para>
+        /// </param>
+        /// <param name="optionsAction">The first parameter configures the object for the primary node and the second parameter configures the object for the secondary node
+        /// <para>第一个参数为主节点配置对象, 第二个参数为从节点配置对象</para>
+        /// </param>
+        /// <returns></returns>
+        public static Redis UseMasterSlave(int slaveCount, Action<ConnectionOptions, ConnectionOptions[]> optionsAction)
+        {
+            return Redis.UseMasterSlave(string.Empty, new string[slaveCount], optionsAction);
+        }
+        #endregion
     }
 }

@@ -1,4 +1,5 @@
-﻿#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+﻿#pragma warning disable IDE0130
+#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
 #nullable enable
 #endif
 #if !LOW_NET

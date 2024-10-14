@@ -81,16 +81,29 @@ namespace SharpRedis.Extensions
             return ConvertExtensions.To<long>(connection.ExecuteCommand(ConnectionCommands.ClientId(), default), ResultType.Int64, connection.Encoding);
         }
 
+        /// <summary>
+        /// Idle ping
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <returns></returns>
         internal static bool Ping(IConnection connection)
         {
-            var pingMsg = $"SharpRedis_{Guid.NewGuid():N}_Ping";
-            var pingResult = connection.ExecuteCommand(ConnectionCommands.Ping(pingMsg), default);
-            var pintResultString = ConvertExtensions.To<string>(pingResult, ResultType.String, connection.Encoding);
-            if (pingMsg.Equals(pintResultString, StringComparison.OrdinalIgnoreCase))
+            try
             {
-                return true;
+                var pingMsg = $"SharpRedis_{Guid.NewGuid():N}_Ping";
+                var pingResult = connection.ExecuteCommand(ConnectionCommands.Ping(pingMsg), default);
+                var pintResultString = ConvertExtensions.To<string>(pingResult, ResultType.String, connection.Encoding);
+                if (pingMsg.Equals(pintResultString, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                return false;
             }
-            return false;
+            catch (Exception ex)
+            {
+                SharpConsole.WriteError($"Idle Exception, message: {ex.Message}");
+                return false;
+            }
         }
 
         internal static bool Select(IConnection connection, ushort index)
