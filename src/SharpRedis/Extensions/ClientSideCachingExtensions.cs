@@ -143,14 +143,13 @@ namespace SharpRedis.Extensions
             {
                 for (uint prefixeIndex = 0; prefixeIndex < clientSideCaching.KeyPrefixes.Length; prefixeIndex++)
                 {
-                    if (keys[keyIndex].Length < clientSideCaching.KeyPrefixes[prefixeIndex].Length
-                        || !keys[keyIndex].StartsWith(clientSideCaching.KeyPrefixes[prefixeIndex]))
+                    if (keys[keyIndex].StartsWith(clientSideCaching.KeyPrefixes[prefixeIndex]))
                     {
-                        return false;
+                        return true;
                     }
                 }
             }
-            return true;
+            return false;
         }
 
 #if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
