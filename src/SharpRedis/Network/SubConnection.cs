@@ -42,6 +42,7 @@ namespace SharpRedis.Network
         #region ReceiveCompleted
         private protected override void ReceiveCallback(IAsyncResult ar)
         {
+            if (base._socketClient is null) return;
             int bytesReceived = base._socketClient.EndReceive(ar);
             if (bytesReceived <= 0) //closure
             {
