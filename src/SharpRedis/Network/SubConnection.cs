@@ -4,13 +4,6 @@
 #if NET8_0_OR_GREATER
 #pragma warning disable IDE0028
 #endif
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-using AliasTaskCompletionSource = System.Threading.Tasks.TaskCompletionSource<object?>;
-#else
-#if !LOW_NET
-using AliasTaskCompletionSource = System.Threading.Tasks.TaskCompletionSource<object>;
-#endif
-#endif
 #if !NET30
 using System.Linq;
 #endif
@@ -47,226 +40,176 @@ namespace SharpRedis.Network
         }
 
         #region ReceiveCompleted
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-        sealed private protected override void ReceiveCompleted(object? sender, SocketAsyncEventArgs e)
-#else
-        sealed private protected override void ReceiveCompleted(object sender, SocketAsyncEventArgs e)
-#endif
+        private protected override void ReceiveCallback(IAsyncResult ar)
         {
-            if (e.SocketError != SocketError.Success || e.BytesTransferred is 0)
+            int bytesReceived = base._socketClient.EndReceive(ar);
+            if (bytesReceived <= 0) //closure
             {
-                this._connected = false;
-                if (base._currentIsSync)
-                {
-                    e.UserToken = new RedisConnectionException("Unexpected connection closure");
-                    return;
-                }
-#if !LOW_NET
-                else
-                {
-                    if (e.UserToken is AliasTaskCompletionSource lastTcs)
-                    {
-                        lock (lastTcs)
-                        {
-                            if (lastTcs.Task.Status == TaskStatus.WaitingForActivation)
-                                lastTcs.SetResult(new RedisConnectionException("Unexpected connection closure"));
-                        }
-                        return;
-                    }
-                }
-#endif
-                e.UserToken = null;
+                base._connected = false;
+                base.SetResult(new RedisConnectionException("Unexpected connection closure"));
+                this.SetException(new RedisConnectionException("Unexpected connection closure"));
                 return;
             }
 
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-            base._dataPacket.Write(e.MemoryBuffer.Slice(e.Offset, e.BytesTransferred).Span);
-#else
-            base._dataPacket.Write(e.Buffer, e.Offset, e.BytesTransferred);
-#endif
+            base._dataPacket.Write(base._receiveBuffer, 0, bytesReceived);
+            if (this._socketClient.Available > 0) goto Continue;
             _ = base._dataPacket.Seek(0, SeekOrigin.Begin);
 
             while (true)
             {
-                if (!DataPacketExtensions.GetNextValue(this._dataPacket, base._encoding, ResultDataType.Bytes, out var data))
+                if (base._dataPacket.Position == base._dataPacket.Length)
                 {
-                    _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
+                    base._dataPacket.SetLength(0);
                     break;
                 }
-                if (base._dataPacket.Position == base._dataPacket.Length) base._dataPacket.SetLength(0);
+                if (!DataPacketExtensions.GetNextValue(base._dataPacket, base._encoding, ResultDataType.Bytes, out var data))
+                {
+                    if (this._socketClient.Available <= 0)
+                    {
+                        this.SetException(new RedisException("The data cannot be parsed, possibly due to packet loss"));
+                        break;
+                    }
+                    _ = base._dataPacket.Seek(base._dataPacket.Length, SeekOrigin.Begin);
+                    break;
+                }
 
                 if (data is object[] array)
                 {
-                    var first = ConvertExtensions.To<string>(array[0], ResultType.String, base.Encoding);
-                    if (!string.IsNullOrEmpty(first))
+                    var first = ConvertExtensions.To<string>(array[0], ResultType.String, base.Encoding) ?? string.Empty;
+                    if (!"pong".Equals(first, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (!"pong".Equals(first, StringComparison.OrdinalIgnoreCase))
+                        switch (first.ToLower())
                         {
-                            switch (first.ToLower())
-                            {
-                                case "subscribe":
-                                case "psubscribe":
-                                    continue;
-                                case "message":
-                                    {
-                                        if (this._onReceives is null || this._onReceives.Count <= 0) continue;
-                                        if (array.Length is 3)
-                                        {
-                                            var channel = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
-                                            if (!string.IsNullOrEmpty(channel)
-                                                && this._onReceives.TryGetValue(new ChannelMode(channel, ChannelModeEnum.Default), out var receive))
-                                            {
-                                                _ = ThreadPool.QueueUserWorkItem(SubConnection.OnReceiveInvoke, new OnReceiveInvokeItem(receive, channel, array[2], base._encoding));
-                                            }
-                                        }
-                                        continue;
-                                    }
-                                case "pmessage":
-                                    {
-                                        if (this._pOnReceives is null || this._pOnReceives.Count <= 0) continue;
-                                        if (array.Length is 4)
-                                        {
-                                            var pattern = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
-                                            var channel = ConvertExtensions.To<string>(array[2], ResultType.String, base.Encoding);
-                                            if (!string.IsNullOrEmpty(pattern)
-                                                && !string.IsNullOrEmpty(channel)
-                                                && this._pOnReceives.TryGetValue(new ChannelMode(pattern, ChannelModeEnum.Default), out var preceive))
-                                            {
-                                                _ = ThreadPool.QueueUserWorkItem(SubConnection.POnReceiveInvoke, new POnReceiveInvokeItem(preceive, pattern, channel, array[3], base._encoding));
-                                            }
-                                        }
-                                        continue;
-                                    }
-                                case "smessage":
-                                    {
-                                        if (this._onReceives is null || this._onReceives.Count <= 0) continue;
-                                        if (array.Length is 3)
-                                        {
-                                            var channel = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
-                                            if (!string.IsNullOrEmpty(channel)
-                                                && this._onReceives.TryGetValue(new ChannelMode(channel, ChannelModeEnum.Shard), out var receive))
-                                            {
-                                                _ = ThreadPool.QueueUserWorkItem(SubConnection.OnReceiveInvoke, new OnReceiveInvokeItem(receive, channel, array[2], base._encoding));
-                                            }
-                                        }
-                                        continue;
-                                    }
-                                case "unsubscribe":
-                                    {
-                                        if (this._onReceives is null || this._onReceives.Count <= 0) continue;
-                                        if (array.Length is 3)
-                                        {
-                                            var channel = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
-                                            if (!string.IsNullOrEmpty(channel))
-                                            {
-                                                if (this._onReceives.Remove(new ChannelMode(channel, ChannelModeEnum.Default)))
-                                                {
-                                                    _ = Interlocked.Decrement(ref this._subCount);
-                                                }
-                                            }
-                                        }
-                                        continue;
-                                    }
-                                case "punsubscribe":
-                                    {
-                                        if (this._pOnReceives is null) continue;
-                                        if (array.Length is 3)
-                                        {
-                                            var pattern = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
-                                            if (!string.IsNullOrEmpty(pattern))
-                                            {
-                                                if (this._pOnReceives.Remove(new ChannelMode(pattern, ChannelModeEnum.Default)))
-                                                {
-                                                    _ = Interlocked.Decrement(ref this._subCount);
-                                                }
-                                            }
-                                        }
-                                        continue;
-                                    }
-                                case "sunsubscribe":
-                                    {
-                                        if (this._onReceives is null || this._onReceives.Count <= 0) continue;
-                                        if (array.Length is 3)
-                                        {
-                                            var channel = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
-                                            if (!string.IsNullOrEmpty(channel))
-                                            {
-                                                if (this._onReceives.Remove(new ChannelMode(channel, ChannelModeEnum.Shard)))
-                                                {
-                                                    _ = Interlocked.Decrement(ref this._subCount);
-                                                }
-                                            }
-                                        }
-                                        continue;
-                                    }
-                                case "invalidate":
-                                    {
-                                        if (this._onReceives is null || this._onReceives.Count <= 0) continue;
-                                        if (array.Length is 2
-                                            && this._onReceives.TryGetValue(new ChannelMode(ClientSideCachingExtensions._invalidate_channel_name, ChannelModeEnum.Default), out var receive))
-                                        {
-                                            _ = ThreadPool.QueueUserWorkItem(SubConnection.OnReceiveInvoke, new OnReceiveInvokeItem(receive, ClientSideCachingExtensions._invalidate_channel_name, array[1], base._encoding));
-                                        }
-                                        continue;
-                                    }
-                                default:
-                                    break;
-                            }
-                        }
-                        else
-                        {
-                            if (base._currentIsSync)
-                            {
-                                e.UserToken = array[1];
-                                _ = base._autoResetEvent.Set();
+                            case "subscribe":
+                            case "psubscribe":
                                 continue;
-                            }
-#if !LOW_NET
-                            else
-                            {
-                                if (e.UserToken is AliasTaskCompletionSource tcs)
+                            case "message":
                                 {
-                                    lock (tcs)
+                                    if (this._onReceives is null || this._onReceives.Count <= 0) continue;
+                                    if (array.Length is 3)
                                     {
-                                        if (tcs.Task.Status == TaskStatus.WaitingForActivation)
+                                        var channel = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
+                                        if (!string.IsNullOrEmpty(channel)
+                                            && this._onReceives.TryGetValue(new ChannelMode(channel, ChannelModeEnum.Default), out var receive))
                                         {
-                                            tcs.SetResult(array[1]);
+                                            _ = ThreadPool.QueueUserWorkItem(SubConnection.OnReceiveInvoke, new OnReceiveInvokeItem(receive, channel, array[2], base._encoding));
                                         }
                                     }
+                                    continue;
                                 }
-                            }
-#endif
+                            case "pmessage":
+                                {
+                                    if (this._pOnReceives is null || this._pOnReceives.Count <= 0) continue;
+                                    if (array.Length is 4)
+                                    {
+                                        var pattern = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
+                                        var channel = ConvertExtensions.To<string>(array[2], ResultType.String, base.Encoding);
+                                        if (!string.IsNullOrEmpty(pattern)
+                                            && !string.IsNullOrEmpty(channel)
+                                            && this._pOnReceives.TryGetValue(new ChannelMode(pattern, ChannelModeEnum.Default), out var preceive))
+                                        {
+                                            _ = ThreadPool.QueueUserWorkItem(SubConnection.POnReceiveInvoke, new POnReceiveInvokeItem(preceive, pattern, channel, array[3], base._encoding));
+                                        }
+                                    }
+                                    continue;
+                                }
+                            case "smessage":
+                                {
+                                    if (this._onReceives is null || this._onReceives.Count <= 0) continue;
+                                    if (array.Length is 3)
+                                    {
+                                        var channel = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
+                                        if (!string.IsNullOrEmpty(channel)
+                                            && this._onReceives.TryGetValue(new ChannelMode(channel, ChannelModeEnum.Shard), out var receive))
+                                        {
+                                            _ = ThreadPool.QueueUserWorkItem(SubConnection.OnReceiveInvoke, new OnReceiveInvokeItem(receive, channel, array[2], base._encoding));
+                                        }
+                                    }
+                                    continue;
+                                }
+                            case "unsubscribe":
+                                {
+                                    if (this._onReceives is null || this._onReceives.Count <= 0) continue;
+                                    if (array.Length is 3)
+                                    {
+                                        var channel = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
+                                        if (!string.IsNullOrEmpty(channel))
+                                        {
+                                            if (this._onReceives.Remove(new ChannelMode(channel, ChannelModeEnum.Default)))
+                                            {
+                                                _ = Interlocked.Decrement(ref this._subCount);
+                                            }
+                                        }
+                                    }
+                                    continue;
+                                }
+                            case "punsubscribe":
+                                {
+                                    if (this._pOnReceives is null) continue;
+                                    if (array.Length is 3)
+                                    {
+                                        var pattern = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
+                                        if (!string.IsNullOrEmpty(pattern))
+                                        {
+                                            if (this._pOnReceives.Remove(new ChannelMode(pattern, ChannelModeEnum.Default)))
+                                            {
+                                                _ = Interlocked.Decrement(ref this._subCount);
+                                            }
+                                        }
+                                    }
+                                    continue;
+                                }
+                            case "sunsubscribe":
+                                {
+                                    if (this._onReceives is null || this._onReceives.Count <= 0) continue;
+                                    if (array.Length is 3)
+                                    {
+                                        var channel = ConvertExtensions.To<string>(array[1], ResultType.String, base.Encoding);
+                                        if (!string.IsNullOrEmpty(channel))
+                                        {
+                                            if (this._onReceives.Remove(new ChannelMode(channel, ChannelModeEnum.Shard)))
+                                            {
+                                                _ = Interlocked.Decrement(ref this._subCount);
+                                            }
+                                        }
+                                    }
+                                    continue;
+                                }
+                            case "invalidate":
+                                {
+                                    if (this._onReceives is null || this._onReceives.Count <= 0) continue;
+                                    if (array.Length is 2
+                                        && this._onReceives.TryGetValue(new ChannelMode(ClientSideCachingExtensions._invalidate_channel_name, ChannelModeEnum.Default), out var receive))
+                                    {
+                                        _ = ThreadPool.QueueUserWorkItem(SubConnection.OnReceiveInvoke, new OnReceiveInvokeItem(receive, ClientSideCachingExtensions._invalidate_channel_name, array[1], base._encoding));
+                                    }
+                                    continue;
+                                }
+                            default:
+                                break;
                         }
+                    }
+                    else
+                    {
+                        base.SetResult(array[1], false);
                     }
                 }
                 else
                 {
-                    if (base._currentIsSync)
-                    {
-                        e.UserToken = data;
-                        _ = this._autoResetEvent.Set();
-                    }
-#if !LOW_NET
-                    else
-                    {
-                        if (e.UserToken is AliasTaskCompletionSource tcs)
-                        {
-                            lock (tcs)
-                            {
-                                if (tcs.Task.Status == TaskStatus.WaitingForActivation)
-                                {
-                                    tcs.SetResult(data);
-                                }
-                            }
-                        }
-                    }
-#endif
+                    base.SetResult(data, false);
                 }
             }
 
-            if (!base._socketClient.ReceiveAsync(e))
+            Continue:
+            _ = base._socketClient.BeginReceive(base._receiveBuffer, 0, base._receiveBuffer.Length, SocketFlags.None, this.ReceiveCallback, null);
+        }
+
+        private void SetException(Exception ex)
+        {
+            base._dataPacket.SetLength(0);
+            foreach (var item in this._onReceives)
             {
-                this.ReceiveCompleted(sender, e);
+                _ = ThreadPool.QueueUserWorkItem(SubConnection.OnReceiveInvoke, new OnReceiveInvokeItem(item.Value, "SharpRedisException", ex, base._encoding));
             }
         }
         #endregion
@@ -381,6 +324,15 @@ namespace SharpRedis.Network
             }
         }
         #endregion
+
+        sealed private protected override void BeginReceive()
+        {
+        }
+
+        sealed private protected override void ConnectedEvent()
+        {
+            _ = base._socketClient.BeginReceive(base._receiveBuffer, 0, base._receiveBuffer.Length, SocketFlags.None, this.ReceiveCallback, null);
+        }
 
 #if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
         private static void OnReceiveInvoke(object? state)

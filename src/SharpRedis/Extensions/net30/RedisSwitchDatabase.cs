@@ -1,13 +1,15 @@
 ﻿#if NET30
 namespace SharpRedis
 {
-    public partial class Redis
+    public partial class RedisSwitchDatabase
     {
         /// <summary>
         /// Begin a command pipeline. Call the EndPipelining method to execute the pipeline and get the return value.
         /// <para>You are advised to release the command pipe immediately after using it.</para>
+        /// <para>Please be aware that the pipeline does not use client-side caching</para>
         /// <para>开启一个命令管道. 调用EndPipelining方法来执行管道并获取返回值</para>
         /// <para>建议使用完命令管道后, 立即进行释放. 使用using语法即可</para>
+        /// <para>请注意, 管道不会使用客户端缓存, 哪怕你开启了客户端缓存功能</para>
         /// </summary>
         /// <returns>Command pipeline
         /// <para>命令管道对象</para>
@@ -17,8 +19,10 @@ namespace SharpRedis
         /// <summary>
         /// Begin a command pipeline. Call the EndPipelining method to execute the pipeline and get the return value.
         /// <para>You are advised to release the command pipe immediately after using it.</para>
+        /// <para>Please be aware that the pipeline does not use client-side caching</para>
         /// <para>开启一个命令管道. 调用EndPipelining方法来执行管道并获取返回值</para>
         /// <para>建议使用完命令管道后, 立即进行释放. 使用using语法即可</para>
+        /// <para>请注意, 管道不会使用客户端缓存, 哪怕你开启了客户端缓存功能</para>
         /// </summary>
         /// <returns>Command pipeline
         /// <para>命令管道对象</para>
@@ -57,48 +61,6 @@ namespace SharpRedis
         /// <para>命令管道对象</para>
         /// </returns>
         public RedisPipelining UsePipelining() => RedisExtensions.BeginPipelining(this);
-
-        /// <summary>
-        /// Switches to the specified database based on the subscript. Note that switching databases does not use client-side caching, even if you have client-side caching enabled
-        /// <para>Remember to call the Disposable method to release after using it, using the using syntax</para>
-        /// <para>If not released in time, the connection may run out</para>
-        /// <para>根据下标切换到指定的数据库. 请注意, 切换数据库不会使用客户端缓存, 哪怕你开启了客户端缓存功能</para>
-        /// <para>使用完记得调用Disposable方法进行释放, 使用using语法即可</para>
-        /// <para>如果不及时释放, 可能会导致连接用尽</para>
-        /// </summary>
-        /// <param name="index">Database index
-        /// <para>数据库下标</para>
-        /// </param>
-        /// <returns></returns>
-        public RedisSwitchDatabase SwitchDatabase(ushort index) => RedisExtensions.SwitchDatabase(this, index);
-
-        /// <summary>
-        /// Switches to the specified database based on the subscript. Note that switching databases does not use client-side caching, even if you have client-side caching enabled
-        /// <para>Remember to call the Disposable method to release after using it, using the using syntax</para>
-        /// <para>If not released in time, the connection may run out</para>
-        /// <para>根据下标切换到指定的数据库. 请注意, 切换数据库不会使用客户端缓存, 哪怕你开启了客户端缓存功能</para>
-        /// <para>使用完记得调用Disposable方法进行释放, 使用using语法即可</para>
-        /// <para>如果不及时释放, 可能会导致连接用尽</para>
-        /// </summary>
-        /// <param name="index">Database index
-        /// <para>数据库下标</para>
-        /// </param>
-        /// <returns></returns>
-        public RedisSwitchDatabase SelectDatabase(ushort index) => RedisExtensions.SwitchDatabase(this, index);
-
-        /// <summary>
-        /// Switches to the specified database based on the subscript. Note that switching databases does not use client-side caching, even if you have client-side caching enabled
-        /// <para>Remember to call the Disposable method to release after using it, using the using syntax</para>
-        /// <para>If not released in time, the connection may run out</para>
-        /// <para>根据下标切换到指定的数据库. 请注意, 切换数据库不会使用客户端缓存, 哪怕你开启了客户端缓存功能</para>
-        /// <para>使用完记得调用Disposable方法进行释放, 使用using语法即可</para>
-        /// <para>如果不及时释放, 可能会导致连接用尽</para>
-        /// </summary>
-        /// <param name="index">Database index
-        /// <para>数据库下标</para>
-        /// </param>
-        /// <returns></returns>
-        public RedisSwitchDatabase Select(ushort index) => RedisExtensions.SwitchDatabase(this, index);
 
         /// <summary>
         /// Marks the start of a transaction block. Subsequent commands will be queued for atomic execution using [EXEC].

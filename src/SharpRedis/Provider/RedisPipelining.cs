@@ -63,6 +63,44 @@ namespace SharpRedis
             return this.ExecutePipelining(cancellationToken);
         }
 
+        /// <summary>
+        /// Execute the command pipeline and get the return value.
+        /// <para>Return an array of values in the same order as the commands in the pipe</para>
+        /// <para>执行命令管道并获取返回值</para>
+        /// <para>返回值数组顺序和管道执行的命令顺序一致</para>
+        /// </summary>
+        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+        /// <para>取消Token, 有效值会覆盖系统默认的</para>
+        /// </param>
+        /// <returns></returns>
+#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+        public object?[]? InvokePipelining(CancellationToken cancellationToken = default)
+#else
+        public object[] InvokePipelining(CancellationToken cancellationToken = default)
+#endif
+        {
+            return this.ExecutePipelining(cancellationToken);
+        }
+
+        /// <summary>
+        /// Execute the command pipeline and get the return value.
+        /// <para>Return an array of values in the same order as the commands in the pipe</para>
+        /// <para>执行命令管道并获取返回值</para>
+        /// <para>返回值数组顺序和管道执行的命令顺序一致</para>
+        /// </summary>
+        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+        /// <para>取消Token, 有效值会覆盖系统默认的</para>
+        /// </param>
+        /// <returns></returns>
+#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+        public object?[]? RunPipelining(CancellationToken cancellationToken = default)
+#else
+        public object[] RunPipelining(CancellationToken cancellationToken = default)
+#endif
+        {
+            return this.ExecutePipelining(cancellationToken);
+        }
+
 #if !LOW_NET
         /// <summary>
         /// Execute the command pipeline and get the return value.
@@ -94,6 +132,40 @@ namespace SharpRedis
         public Task<object?[]?> EndPipeliningAsync(CancellationToken cancellationToken = default)
 #else
         public Task<object[]> EndPipeliningAsync(CancellationToken cancellationToken = default)
+#endif
+        {
+            return this.ExecutePipeliningAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Execute the command pipeline and get the return value.
+        /// <para>Return an array of values in the same order as the commands in the pipe</para>
+        /// <para>执行命令管道并获取返回值</para>
+        /// <para>返回值数组顺序和管道执行的命令顺序一致</para>
+        /// </summary>
+        /// <param name="cancellationToken">CancellationToken</param>
+        /// <returns></returns>
+#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+        public Task<object?[]?> InvokePipeliningAsync(CancellationToken cancellationToken = default)
+#else
+        public Task<object[]> InvokePipeliningAsync(CancellationToken cancellationToken = default)
+#endif
+        {
+            return this.ExecutePipeliningAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Execute the command pipeline and get the return value.
+        /// <para>Return an array of values in the same order as the commands in the pipe</para>
+        /// <para>执行命令管道并获取返回值</para>
+        /// <para>返回值数组顺序和管道执行的命令顺序一致</para>
+        /// </summary>
+        /// <param name="cancellationToken">CancellationToken</param>
+        /// <returns></returns>
+#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+        public Task<object?[]?> RunPipeliningAsync(CancellationToken cancellationToken = default)
+#else
+        public Task<object[]> RunPipeliningAsync(CancellationToken cancellationToken = default)
 #endif
         {
             return this.ExecutePipeliningAsync(cancellationToken);
