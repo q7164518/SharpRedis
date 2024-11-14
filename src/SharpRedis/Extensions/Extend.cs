@@ -289,16 +289,39 @@ namespace SharpRedis.Extensions
         }
 #endif
 
-        internal static long GetByteArrayHashCode(byte[] byteArray)
+        unsafe internal static long GetByteArrayHashCode(byte[] byteArray)
         {
             if (byteArray is null || byteArray.Length == 0) return 0;
 
             unchecked
             {
                 long hash = 17;
-                for (uint i = 0; i < byteArray.Length; i++)
+                fixed (byte* ptr = byteArray)
                 {
-                    hash = hash * 31 + byteArray[i];
+                    byte* p = ptr;
+                    for (int i = 0; i < byteArray.Length; i++)
+                    {
+                        hash = hash * 31 + *p;
+                        p++;
+                    }
+                }
+                return hash;
+            }
+        }
+
+        unsafe internal static long GetStringHashCode(string str)
+        {
+            if (string.IsNullOrEmpty(str)) return 0;
+
+            unchecked
+            {
+                long hash = 17;
+                fixed (char* ptr = str)
+                {
+                    for (char* p = ptr; *p != '\0'; p++)
+                    {
+                        hash = hash * 31 + *p;
+                    }
                 }
                 return hash;
             }

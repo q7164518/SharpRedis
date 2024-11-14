@@ -326,7 +326,7 @@ namespace SharpRedis.Models
                 var item = this._commands[i].Item;
                 if (item is string str)
                 {
-                    hashKey = hashKey * 31 + str.GetHashCode();
+                    hashKey = hashKey * 31 + Extend.GetStringHashCode(str);
                 }
                 else if (item is byte[] byteArray)
                 {

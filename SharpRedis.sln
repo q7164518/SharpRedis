@@ -26,6 +26,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpRedis.DependencyInject
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpRedis.DependencyInjectionKeyedService", "src\SharpRedis.DependencyInjectionKeyedService\SharpRedis.DependencyInjectionKeyedService.csproj", "{BF90AB6F-46F4-49F4-AF9B-EEF710F765DD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Example_NET9", "examples\Example_NET9\Example_NET9.csproj", "{4E0B764B-88A1-4348-BA7C-CF1D1693D7E5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -68,6 +70,10 @@ Global
 		{BF90AB6F-46F4-49F4-AF9B-EEF710F765DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BF90AB6F-46F4-49F4-AF9B-EEF710F765DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BF90AB6F-46F4-49F4-AF9B-EEF710F765DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4E0B764B-88A1-4348-BA7C-CF1D1693D7E5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4E0B764B-88A1-4348-BA7C-CF1D1693D7E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4E0B764B-88A1-4348-BA7C-CF1D1693D7E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4E0B764B-88A1-4348-BA7C-CF1D1693D7E5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,6 +88,7 @@ Global
 		{1700E6DB-20DE-4BB8-B196-4C9E9495AD27} = {954381ED-C4AD-45EB-AD53-C764813E0605}
 		{C93AAC1A-BF01-4351-A73E-6D83D9E3EE7D} = {954381ED-C4AD-45EB-AD53-C764813E0605}
 		{BF90AB6F-46F4-49F4-AF9B-EEF710F765DD} = {954381ED-C4AD-45EB-AD53-C764813E0605}
+		{4E0B764B-88A1-4348-BA7C-CF1D1693D7E5} = {AF6960AD-895B-4D10-8444-F0550606B52F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {47F37E65-68EA-49EA-B6BC-D45DE1E856FD}

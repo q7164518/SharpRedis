@@ -13,7 +13,7 @@ sealed public class LocalCache : ClientSideCachingStandard
         this._cache = new MemoryCache(new MemoryCacheOptions { });
     }
 
-    public override ClientSideCachingMode Mode => ClientSideCachingMode.Default;
+    public override ClientSideCachingMode Mode => ClientSideCachingMode.Broadcasting;
 
     public override string[]? KeyPatterns => ["localcache_test*"];
 

@@ -1,7 +1,4 @@
-﻿#if NET8_0_OR_GREATER
-#pragma warning disable IDE0305
-#endif
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+﻿#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
 using AliasTaskCompletionSource = System.Threading.Tasks.TaskCompletionSource<object?>;
 #else
 #if !LOW_NET
@@ -27,13 +24,22 @@ namespace SharpRedis.Network.Standard
 {
     internal abstract class BaseConnection : IConnection
     {
+#if !LOW_NET
+#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+        private protected AliasTaskCompletionSource? _asyncTcs;
+#else
+        private protected AliasTaskCompletionSource _asyncTcs;
+#endif
+#endif
         private protected bool _currentIsSync = true;
         private protected bool _disposedValue;
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+        private protected object? _syncResult;
         private protected byte[]? _prefix;
         private protected CommandPacket? _currentCommand;
         private protected CommandPacket[]? _currentCommands;
 #else
+        private protected object _syncResult;
         private protected byte[] _prefix;
         private protected CommandPacket _currentCommand;
         private protected CommandPacket[] _currentCommands;
@@ -44,13 +50,12 @@ namespace SharpRedis.Network.Standard
         private protected MemoryStream _dataPacket;
         private protected Encoding _encoding;
         private protected ConnectionOptions _connectionOptions;
-        private protected SocketAsyncEventArgs _receiveArgs;
         private protected long _connectionId;
         private protected DateTime _lastActiveTime;
         private protected ushort _currentDataBaseIndex = 0;
-        private byte[] _receiveBuffer;
-        private WaitHandle[] _waitHandleBuffer;
-        
+        private protected byte[] _receiveBuffer;
+        private protected WaitHandle[] _waitHandleBuffer;
+
         #region Properties
         public bool Connected => this._socketClient?.Connected == true && this._connected;
 
@@ -87,16 +92,9 @@ namespace SharpRedis.Network.Standard
             this._prefix = _prefix;
             this.Type = connectionType;
             this.ConnectionName = $"{connectionOptions.ConnectName?.Trim()}_SharpRedis_{connectionType}_{Guid.NewGuid():N}".TrimStart('_');
-            this._receiveArgs = new SocketAsyncEventArgs();
             this._receiveBuffer = new byte[connectionOptions.Buffer];
             this._waitHandleBuffer = new WaitHandle[2];
             this._waitHandleBuffer[0] = this._autoResetEvent;
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-            this._receiveArgs.SetBuffer(new Memory<byte>(this._receiveBuffer));
-#else
-            this._receiveArgs.SetBuffer(this._receiveBuffer, 0, this._receiveBuffer.Length);
-#endif
-            this._receiveArgs.Completed += this.ReceiveCompleted;
         }
 
         public void ResetBuffer()
@@ -116,8 +114,7 @@ namespace SharpRedis.Network.Standard
                     return false;
                 }
                 this._connected = true;
-                _ = this._socketClient.ReceiveAsync(this._receiveArgs);
-
+                this.ConnectedEvent();
                 if (this._connectionOptions.RespVersion is 3)
                 {
                     if (!ConnectionExtensions.Hello(this, (RespVersion)this._connectionOptions.RespVersion, this._connectionOptions.User, this._connectionOptions.Password))
@@ -173,36 +170,35 @@ namespace SharpRedis.Network.Standard
         public object ExecuteCommand(CommandPacket command, CancellationToken cancellationToken)
 #endif
         {
-            if (this._disposedValue)
-            {
-                this._connected = false;
-                return new RedisConnectionException("The current Redis connection has been released");
-            }
             try
             {
-                DateTime timeout = DateTime.UtcNow.AddMilliseconds(this._connectionOptions.CommandTimeout);
-                this.SendCommand(command, timeout, cancellationToken);
-                var timespan = timeout - DateTime.UtcNow;
+                this.SendCommand(command, cancellationToken);
+                var timespan = TimeSpan.FromMilliseconds(this._connectionOptions.CommandTimeout);
                 this._waitHandleBuffer[1] = cancellationToken.WaitHandle;
                 int index = WaitHandle.WaitAny(this._waitHandleBuffer, timespan);
-                this._currentCommand = null;
+                this._waitHandleBuffer[1] = null
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+                    !
+#endif
+                    ;
                 if (index != 0) throw new OperationCanceledException();
-                var result = this._receiveArgs.UserToken;
-                this._receiveArgs.UserToken = null;
+                this._currentCommand = null;
+                var result = this._syncResult;
+                this._syncResult = null;
                 return result;
             }
             catch (OperationCanceledException)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 this._currentCommand = null;
+                this._syncResult = null;
                 return new TimeoutException($"Command: [{command}] execution timeout");
             }
             catch (Exception ex)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 this._currentCommand = null;
+                this._syncResult = null;
                 return ex;
             }
         }
@@ -213,22 +209,21 @@ namespace SharpRedis.Network.Standard
         public object ExecuteCommands(CommandPacket[] commands, CancellationToken cancellationToken)
 #endif
         {
-            if (this._disposedValue)
-            {
-                this._connected = false;
-                return new RedisConnectionException("The current Redis connection has been released");
-            }
             try
             {
-                DateTime timeout = DateTime.UtcNow.AddMilliseconds(this._connectionOptions.CommandTimeout);
-                this.SendCommands(commands, timeout, cancellationToken);
-                var timespan = timeout - DateTime.UtcNow;
+                this.SendCommands(commands, cancellationToken);
+                var timespan = TimeSpan.FromMilliseconds(this._connectionOptions.CommandTimeout);
                 this._waitHandleBuffer[1] = cancellationToken.WaitHandle;
                 int index = WaitHandle.WaitAny(this._waitHandleBuffer, timespan);
-                this._currentCommands = null;
+                this._waitHandleBuffer[1] = null
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+                    !
+#endif
+                    ;
                 if (index != 0) throw new OperationCanceledException();
-                var result = this._receiveArgs.UserToken;
-                this._receiveArgs.UserToken = null;
+                this._currentCommands = null;
+                var result = this._syncResult;
+                this._syncResult = null;
                 return result;
             }
             catch (OperationCanceledException)
@@ -240,72 +235,83 @@ namespace SharpRedis.Network.Standard
                 }
                 sb.Remove(sb.Length - 5, 4);
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 this._currentCommands = null;
+                this._syncResult = null;
                 return new TimeoutException($"Pipeline command: [{sb}] execution timeout");
             }
             catch (Exception ex)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 this._currentCommands = null;
+                this._syncResult = null;
                 return ex;
             }
         }
 
         #region Send command methods
-        private void SendCommand(CommandPacket command, DateTime timeout, CancellationToken cancellationToken)
+        private void SendCommand(CommandPacket command, CancellationToken cancellationToken)
         {
-            BaseConnection.ThrowIfCancellationRequested(timeout, cancellationToken);
-            var sendArgs = this.GetSendArgs(command.ToResp(this._encoding, this._prefix));
+            cancellationToken.ThrowIfCancellationRequested();
             this._currentIsSync = true;
             try
             {
-                if (!this._socketClient.SendAsync(sendArgs)) sendArgs.Dispose();
+                this.DiscardAvailable();
+                var commandBytes = command.ToResp(this._encoding, this._prefix);
+                if ((command.Mode & CommandMode.WithoutActiveTime) != CommandMode.WithoutActiveTime) this._lastActiveTime = DateTime.UtcNow;
+                this._currentCommand = command;
+                if (this._socketClient.Send(commandBytes, 0, commandBytes.Length, SocketFlags.None) != commandBytes.Length)
+                {
+                    throw new RedisException("Incomplete data transmission");
+                }
+                if ((command.Mode & CommandMode.WithoutResult) == CommandMode.WithoutResult)
+                {
+                    this._syncResult = DBNull.Value;
+                    _ = this._autoResetEvent.Set();
+                    return;
+                }
+                this.BeginReceive();
             }
             catch (Exception ex)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = ex;
+                this._syncResult = ex;
                 _ = this._autoResetEvent.Set();
                 return;
             }
-
-            if ((command.Mode & CommandMode.WithoutActiveTime) != CommandMode.WithoutActiveTime) this._lastActiveTime = DateTime.UtcNow;
-            if ((command.Mode & CommandMode.WithoutResult) == CommandMode.WithoutResult)
-            {
-                this._receiveArgs.UserToken = DBNull.Value;
-                _ = this._autoResetEvent.Set();
-                return;
-            }
-            this._currentCommand = command;
         }
 
-        private void SendCommands(CommandPacket[] commands, DateTime timeout, CancellationToken cancellationToken)
+        private void SendCommands(CommandPacket[] commands, CancellationToken cancellationToken)
         {
-            BaseConnection.ThrowIfCancellationRequested(timeout, cancellationToken);
-            var commandArrayBytes = new List<byte>();
-            for (uint i = 0; i < commands.Length; i++)
-            {
-                var commandBytes = commands[i].ToResp(this._encoding, this._prefix);
-                commandArrayBytes.AddRange(commandBytes);
-            }
-            var sendArgs = this.GetSendArgs(commandArrayBytes.ToArray());
-            this._receiveArgs.UserToken = commands.Length;
+            cancellationToken.ThrowIfCancellationRequested();
             this._currentIsSync = true;
             try
             {
-                if (!this._socketClient.SendAsync(sendArgs)) sendArgs.Dispose();
+                this.DiscardAvailable();
+                var commandArrayBytes = new List<byte>();
+                for (uint i = 0; i < commands.Length; i++)
+                {
+                    var commandBytes = commands[i].ToResp(this._encoding, this._prefix);
+                    commandArrayBytes.AddRange(commandBytes);
+                }
+                var commandsBytes = commandArrayBytes.ToArray();
+                commandArrayBytes.Clear();
+                commandArrayBytes.Capacity = 0;
+                commandArrayBytes = null;
+                this._currentCommands = commands;
+                this._lastActiveTime = DateTime.UtcNow;
+                if (this._socketClient.Send(commandsBytes, 0, commandsBytes.Length, SocketFlags.None) != commandsBytes.Length)
+                {
+                    throw new RedisException("Incomplete data transmission");
+                }
+                this.BeginReceive();
             }
             catch (Exception ex)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = ex;
+                this._syncResult = ex;
                 _ = this._autoResetEvent.Set();
                 return;
             }
-            this._lastActiveTime = DateTime.UtcNow;
-            this._currentCommands = commands;
         }
         #endregion
         #endregion
@@ -318,15 +324,9 @@ namespace SharpRedis.Network.Standard
         public async Task<object> ExecuteCommandAsync(CommandPacket command, CancellationToken cancellationToken)
 #endif
         {
-            if (this._disposedValue)
-            {
-                this._connected = false;
-                return new RedisConnectionException("The current Redis connection has been released");
-            }
             try
             {
-                DateTime timeout = DateTime.UtcNow.AddMilliseconds(this._connectionOptions.CommandTimeout);
-                var tcs = this.SendCommandAsync(command, timeout, cancellationToken);
+                var tcs = await this.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
                 object? result;
 #else
@@ -334,12 +334,11 @@ namespace SharpRedis.Network.Standard
 #endif
                 if (cancellationToken == default)
                 {
-                    var timespan = timeout - DateTime.UtcNow;
-                    if (timespan.TotalMilliseconds <= 0) throw new OperationCanceledException();
+                    var timespan = TimeSpan.FromMilliseconds(this._connectionOptions.CommandTimeout);
 #if NET6_0_OR_GREATER
-                    result = await tcs.Task.WaitAsync(timespan, CancellationToken.None).ConfigureAwait(false);
+                    result = await tcs.Task.WaitAsync(timespan, cancellationToken).ConfigureAwait(false);
 #else
-                    var task = await Task.WhenAny(tcs.Task, Task.Delay(timespan, CancellationToken.None)).ConfigureAwait(false);
+                    var task = await Task.WhenAny(tcs.Task, Task.Delay(timespan, cancellationToken)).ConfigureAwait(false);
                     if (object.ReferenceEquals(task, tcs.Task))
                     {
                         result = await tcs.Task.ConfigureAwait(false);
@@ -358,22 +357,22 @@ namespace SharpRedis.Network.Standard
                     result = await tcs.Task.ContinueWith(res => res.Result, cancellationToken).ConfigureAwait(false);
 #endif
                 }
-                this._receiveArgs.UserToken = null;
                 this._currentCommand = null;
+                this._asyncTcs = null;
                 return result;
             }
             catch (OperationCanceledException)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 this._currentCommand = null;
+                this._asyncTcs = null;
                 return new TimeoutException($"Command: [{command}] execution timeout");
             }
             catch (Exception ex)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 this._currentCommand = null;
+                this._asyncTcs = null;
                 return ex;
             }
         }
@@ -384,15 +383,9 @@ namespace SharpRedis.Network.Standard
         public async Task<object> ExecuteCommandsAsync(CommandPacket[] commands, CancellationToken cancellationToken)
 #endif
         {
-            if (this._disposedValue)
-            {
-                this._connected = false;
-                return new RedisConnectionException("The current Redis connection has been released");
-            }
             try
             {
-                DateTime timeout = DateTime.UtcNow.AddMilliseconds(this._connectionOptions.CommandTimeout);
-                var tcs = this.SendCommandsAsync(commands, timeout, cancellationToken);
+                var tcs = await this.SendCommandsAsync(commands, cancellationToken).ConfigureAwait(false);
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
                 object? result;
 #else
@@ -400,12 +393,11 @@ namespace SharpRedis.Network.Standard
 #endif
                 if (cancellationToken == default)
                 {
-                    var timespan = timeout - DateTime.UtcNow;
-                    if (timespan.TotalMilliseconds <= 0) throw new OperationCanceledException();
+                    var timespan = TimeSpan.FromMilliseconds(this._connectionOptions.CommandTimeout);
 #if NET6_0_OR_GREATER
-                    result = await tcs.Task.WaitAsync(timespan, CancellationToken.None).ConfigureAwait(false);
+                    result = await tcs.Task.WaitAsync(timespan, cancellationToken).ConfigureAwait(false);
 #else
-                    var task = await Task.WhenAny(tcs.Task, Task.Delay(timespan, CancellationToken.None)).ConfigureAwait(false);
+                    var task = await Task.WhenAny(tcs.Task, Task.Delay(timespan, cancellationToken)).ConfigureAwait(false);
                     if (object.ReferenceEquals(task, tcs.Task))
                     {
                         result = await tcs.Task.ConfigureAwait(false);
@@ -424,8 +416,8 @@ namespace SharpRedis.Network.Standard
                     result = await tcs.Task.ContinueWith(res => res.Result, cancellationToken).ConfigureAwait(false);
 #endif
                 }
-                this._receiveArgs.UserToken = null;
                 this._currentCommands = null;
+                this._asyncTcs = null;
                 return result;
             }
             catch (OperationCanceledException)
@@ -437,135 +429,188 @@ namespace SharpRedis.Network.Standard
                 }
                 sb.Remove(sb.Length - 5, 4);
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 this._currentCommands = null;
+                this._asyncTcs = null;
                 return new TimeoutException($"Pipeline command: [{sb}] execution timeout");
             }
             catch (Exception ex)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 this._currentCommands = null;
+                this._asyncTcs = null;
                 return ex;
             }
         }
 
         #region Send command methods
-        private AliasTaskCompletionSource SendCommandAsync(CommandPacket command, DateTime timeout, CancellationToken cancellationToken)
+#if NET48_OR_GREATER || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
+        async
+#endif
+        private Task<AliasTaskCompletionSource> SendCommandAsync(CommandPacket command, CancellationToken cancellationToken)
         {
-            BaseConnection.ThrowIfCancellationRequested(timeout, cancellationToken);
-            var sendArgs = this.GetSendArgs(command.ToResp(this._encoding, this._prefix));
+            cancellationToken.ThrowIfCancellationRequested();
 #if NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
             var tcs = new AliasTaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 #else
             var tcs = new AliasTaskCompletionSource();
 #endif
-            this._receiveArgs.UserToken = tcs;
             this._currentIsSync = false;
             try
             {
-                if (!this._socketClient.SendAsync(sendArgs)) sendArgs.Dispose();
+                this.DiscardAvailable();
+                var commandBytes = command.ToResp(this._encoding, this._prefix);
+                this._asyncTcs = tcs;
+                if ((command.Mode & CommandMode.WithoutActiveTime) != CommandMode.WithoutActiveTime) this._lastActiveTime = DateTime.UtcNow;
+                this._currentCommand = command;
+#if NET48_OR_GREATER || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
+                if (await this._socketClient.SendAsync(new ArraySegment<byte>(commandBytes, 0, commandBytes.Length), SocketFlags.None
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+                    , cancellationToken
+#endif
+                    ).ConfigureAwait(false) != commandBytes.Length)
+                {
+                    throw new RedisException("Incomplete data transmission");
+                }
+#else
+                if (this._socketClient.Send(commandBytes, 0, commandBytes.Length, SocketFlags.None) != commandBytes.Length)
+                {
+                    throw new RedisException("Incomplete data transmission");
+                }
+#endif
+                if ((command.Mode & CommandMode.WithoutResult) == CommandMode.WithoutResult)
+                {
+                    tcs.SetResult(DBNull.Value);
+#if NET48_OR_GREATER || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
+                    return tcs;
+#else
+                    return Task.FromResult(tcs);
+#endif
+                }
+                this.BeginReceive();
             }
             catch (Exception ex)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 tcs.SetResult(ex);
+#if NET48_OR_GREATER || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
                 return tcs;
+#else
+                return Task.FromResult(tcs);
+#endif
             }
-
-            if ((command.Mode & CommandMode.WithoutActiveTime) != CommandMode.WithoutActiveTime) this._lastActiveTime = DateTime.UtcNow;
-            if ((command.Mode & CommandMode.WithoutResult) == CommandMode.WithoutResult)
-            {
-                tcs.SetResult(DBNull.Value);
-                return tcs;
-            }
-            this._currentCommand = command;
+#if NET48_OR_GREATER || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
             return tcs;
+#else
+            return Task.FromResult(tcs);
+#endif
         }
 
-        private AliasTaskCompletionSource SendCommandsAsync(CommandPacket[] commands, DateTime timeout, CancellationToken cancellationToken)
-        {
-            BaseConnection.ThrowIfCancellationRequested(timeout, cancellationToken);
-            var commandArrayBytes = new List<byte>();
-            for (uint i = 0; i < commands.Length; i++)
-            {
-                var commandBytes = commands[i].ToResp(this._encoding, this._prefix);
-                commandArrayBytes.AddRange(commandBytes);
-            }
-            var sendArgs = this.GetSendArgs(commandArrayBytes.ToArray());
-#if NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
-            var tcs = new AliasTaskCompletionSource(commands.Length, TaskCreationOptions.RunContinuationsAsynchronously);
-#else
-            var tcs = new AliasTaskCompletionSource(commands.Length);
+#if NET48_OR_GREATER || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
+        async
 #endif
-            this._receiveArgs.UserToken = tcs;
+        private Task<AliasTaskCompletionSource> SendCommandsAsync(CommandPacket[] commands, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+#if NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
+            var tcs = new AliasTaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+#else
+            var tcs = new AliasTaskCompletionSource();
+#endif
             this._currentIsSync = false;
             try
             {
-                if (!this._socketClient.SendAsync(sendArgs)) sendArgs.Dispose();
+                this.DiscardAvailable();
+                var commandArrayBytes = new List<byte>();
+                for (uint i = 0; i < commands.Length; i++)
+                {
+                    var commandBytes = commands[i].ToResp(this._encoding, this._prefix);
+                    commandArrayBytes.AddRange(commandBytes);
+                }
+                var commandsBytes = commandArrayBytes.ToArray();
+                commandArrayBytes.Clear();
+                commandArrayBytes.Capacity = 0;
+                commandArrayBytes = null;
+                this._asyncTcs = tcs;
+                this._lastActiveTime = DateTime.UtcNow;
+                this._currentCommands = commands;
+#if NET48_OR_GREATER || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
+                if (await this._socketClient.SendAsync(new ArraySegment<byte>(commandsBytes, 0, commandsBytes.Length), SocketFlags.None
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+                    , cancellationToken
+#endif
+                    ).ConfigureAwait(false) != commandsBytes.Length)
+                {
+                    throw new RedisException("Incomplete data transmission");
+                }
+#else
+                if (this._socketClient.Send(commandsBytes, 0, commandsBytes.Length, SocketFlags.None) != commandsBytes.Length)
+                {
+                    throw new RedisException("Incomplete data transmission");
+                }
+#endif
+                this.BeginReceive();
             }
             catch (Exception ex)
             {
                 this._connected = false;
-                this._receiveArgs.UserToken = null;
                 tcs.SetResult(ex);
+#if NET48_OR_GREATER || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
                 return tcs;
+#else
+                return Task.FromResult(tcs);
+#endif
             }
-
-            this._lastActiveTime = DateTime.UtcNow;
-            this._currentCommands = commands;
+#if NET48_OR_GREATER || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
             return tcs;
+#else
+            return Task.FromResult(tcs);
+#endif
         }
         #endregion
 #endif
         #endregion
 
         #region ReceiveCompleted
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-        private protected virtual void ReceiveCompleted(object? sender, SocketAsyncEventArgs e)
-#else
-        private protected virtual void ReceiveCompleted(object sender, SocketAsyncEventArgs e)
-#endif
+        private protected virtual void ReceiveCallback(IAsyncResult ar)
         {
-            if (e.SocketError != SocketError.Success || e.BytesTransferred is 0)
+            try
             {
-                this._connected = false;
-                if (this._currentIsSync)
+                int bytesReceived = this._socketClient.EndReceive(ar);
+                if (bytesReceived <= 0) //closure
                 {
-                    e.UserToken = new RedisConnectionException("Unexpected connection closure");
+                    this._connected = false;
+                    this.SetResult(new RedisConnectionException("Unexpected connection closure"));
                     return;
                 }
-#if !LOW_NET
-                else
+
+                this._dataPacket.Write(this._receiveBuffer, 0, bytesReceived);
+                if (this._socketClient.Available > 0) goto Continue;
+                _ = this._dataPacket.Seek(0, SeekOrigin.Begin);
+
+                #region Single command
+                if (this._currentCommand != null)
                 {
-                    if (e.UserToken is AliasTaskCompletionSource lastTcs)
+                    if (DataPacketExtensions.GetNextValue(this._dataPacket, this._encoding, this._currentCommand.ResultDataType, out var result))
                     {
-                        lock (lastTcs)
-                        {
-                            if (lastTcs.Task.Status == TaskStatus.WaitingForActivation)
-                                lastTcs.SetResult(new RedisConnectionException("Unexpected connection closure"));
-                        }
+                        this.SetResult(result);
                         return;
                     }
+                    else
+                    {
+                        if (this._socketClient.Available <= 0)
+                        {
+                            throw new RedisException("The data cannot be parsed, possibly due to packet loss");
+                        }
+                        _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
+                        goto Continue;
+                    }
                 }
-#endif
-                e.UserToken = null;
-                return;
-            }
+                #endregion
 
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-            this._dataPacket.Write(e.MemoryBuffer.Slice(e.Offset, e.BytesTransferred).Span);
-#else
-            this._dataPacket.Write(e.Buffer, e.Offset, e.BytesTransferred);
-#endif
-            _ = this._dataPacket.Seek(0, SeekOrigin.Begin);
-
-            #region Sync
-            if (this._currentIsSync)
-            {
-                if (e.UserToken is int pipeCommandCount)
+                #region Command pipeline
+                if (this._currentCommands != null)
                 {
+                    int pipeCommandCount = this._currentCommands.Length;
 #if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
                     var result = new object?[pipeCommandCount];
 #else
@@ -573,142 +618,81 @@ namespace SharpRedis.Network.Standard
 #endif
                     for (uint i = 0; i < pipeCommandCount; i++)
                     {
-                        var dataType = this._currentCommands?[i].ResultDataType;
-                        if (DataPacketExtensions.GetNextValue(this._dataPacket, this._encoding, dataType ?? ResultDataType.Bytes, out var data))
+                        var dataType = this._currentCommands[i].ResultDataType;
+                        if (DataPacketExtensions.GetNextValue(this._dataPacket, this._encoding, dataType, out var data))
                         {
                             result[i] = data;
                         }
                         else
                         {
+                            if (this._socketClient.Available <= 0)
+                            {
+                                throw new RedisException("The data cannot be parsed, possibly due to packet loss");
+                            }
                             _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
                             goto Continue;
                         }
                     }
-                    this._dataPacket.SetLength(0);
-                    e.UserToken = result;
-                    _ = this._autoResetEvent.Set();
-                    goto Continue;
+                    this.SetResult(result);
+                    return;
                 }
-                else
-                {
-                    if (DataPacketExtensions.GetNextValue(this._dataPacket, this._encoding, this._currentCommand?.ResultDataType ?? ResultDataType.Bytes, out var data))
-                    {
-                        this._dataPacket.SetLength(0);
-                        e.UserToken = data;
-                        _ = this._autoResetEvent.Set();
-                        goto Continue;
-                    }
-                    else
-                    {
-                        _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
-                        goto Continue;
-                    }
-                }
+                #endregion
             }
-            #endregion
-
-            #region Async
-#if !LOW_NET
-            else
+            catch (Exception ex)
             {
-                if (e.UserToken is AliasTaskCompletionSource tcs)
-                {
-                    if (tcs.Task.AsyncState is int pipeCommandCount)
-                    {
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                        var result = new object?[pipeCommandCount];
-#else
-                        var result = new object[pipeCommandCount];
-#endif
-                        for (uint i = 0; i < pipeCommandCount; i++)
-                        {
-                            var dataType = this._currentCommands?[i].ResultDataType;
-                            if (DataPacketExtensions.GetNextValue(this._dataPacket, this._encoding, dataType ?? ResultDataType.Bytes, out var data))
-                            {
-                                result[i] = data;
-                            }
-                            else
-                            {
-                                _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
-                                goto Continue;
-                            }
-                        }
-                        this._dataPacket.SetLength(0);
-                        lock (tcs)
-                        {
-                            if (tcs.Task.Status == TaskStatus.WaitingForActivation) tcs.SetResult(result);
-                            goto Continue;
-                        }
-                    }
-                    else
-                    {
-                        if (DataPacketExtensions.GetNextValue(this._dataPacket, this._encoding, this._currentCommand?.ResultDataType ?? ResultDataType.Bytes, out var data))
-                        {
-                            this._dataPacket.SetLength(0);
-                            lock (tcs)
-                            {
-                                if (tcs.Task.Status == TaskStatus.WaitingForActivation) tcs.SetResult(data);
-                                goto Continue;
-                            }
-                        }
-                        else
-                        {
-                            _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
-                            goto Continue;
-                        }
-                    }
-                }
+                this._connected = false;
+                this.SetResult(ex);
+                return;
             }
-#endif
-            #endregion
 
             Continue:
-            if (!this._socketClient.ReceiveAsync(e))
-            {
-                this.ReceiveCompleted(sender, e);
-            }
+            this.BeginReceive();
         }
-        #endregion
 
-        #region Peivate methods
-        private SocketAsyncEventArgs GetSendArgs(byte[] commandBytes)
+        private protected void SetResult(object result, bool clearDataPacket = true)
         {
-            this._dataPacket.SetLength(0);
-            var sendArgs = new SocketAsyncEventArgs();
-            sendArgs.Completed += BaseConnection.SendArgsCompleted;
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-            sendArgs.SetBuffer(commandBytes);
+            if (clearDataPacket) this._dataPacket.SetLength(0);
+#if LOW_NET
+            this._syncResult = result;
+            _ = this._autoResetEvent.Set();
 #else
-            sendArgs.SetBuffer(commandBytes, 0, commandBytes.Length);
-#endif
-            return sendArgs;
-        }
-
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-        private static void SendArgsCompleted(object? sender, SocketAsyncEventArgs e)
-#else
-        private static void SendArgsCompleted(object sender, SocketAsyncEventArgs e)
-#endif
-        {
-            e?.Dispose();
-        }
-
-        private static void ThrowIfCancellationRequested(DateTime timeout, CancellationToken cancellationToken)
-        {
-            if (cancellationToken != default)
+            if (this._currentIsSync)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                this._syncResult = result;
+                _ = this._autoResetEvent.Set();
             }
             else
             {
-                var exptime = timeout - DateTime.UtcNow;
-                if (exptime.TotalMilliseconds <= 0)
+                if (this._asyncTcs != null)
                 {
-                    throw new OperationCanceledException();
+                    lock (this._asyncTcs)
+                    {
+                        if (this._asyncTcs.Task.Status == TaskStatus.WaitingForActivation)
+                            this._asyncTcs.SetResult(result);
+                    }
                 }
             }
+#endif
         }
         #endregion
+
+        private void DiscardAvailable()
+        {
+            if (this._socketClient.Available > 0)
+            {
+                var discard = new byte[this._socketClient.Available];
+                this._socketClient.Receive(discard);
+            }
+        }
+
+        private protected virtual void BeginReceive()
+        {
+            _ = this._socketClient.BeginReceive(this._receiveBuffer, 0, this._receiveBuffer.Length, SocketFlags.None, this.ReceiveCallback, null);
+        }
+
+        private protected virtual void ConnectedEvent()
+        {
+        }
 
         #region Dispose
         protected private virtual void Dispose(bool disposing)
@@ -725,7 +709,6 @@ namespace SharpRedis.Network.Standard
                     this._socketClient?.Close();
                     (this._socketClient as IDisposable)?.Dispose();
                 }
-                this._receiveArgs?.Dispose();
                 this._dataPacket?.Dispose();
                 (this._autoResetEvent as IDisposable)?.Dispose();
             }
@@ -735,7 +718,6 @@ namespace SharpRedis.Network.Standard
             this._socketClient = null;
             this._connectionOptions = null;
             this._encoding = null;
-            this._receiveArgs = null;
             this._dataPacket = null;
             this._encoding = null;
             this._prefix = null;
@@ -744,6 +726,10 @@ namespace SharpRedis.Network.Standard
             this._autoResetEvent = null;
             this._currentCommand = null;
             this._currentCommands = null;
+            this._syncResult = null;
+#if !LOW_NET
+            this._asyncTcs = null;
+#endif
         }
 
         public void Dispose()
@@ -756,6 +742,6 @@ namespace SharpRedis.Network.Standard
         {
             this.Dispose(disposing: true);
         }
-#endregion
+        #endregion
     }
 }

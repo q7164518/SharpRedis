@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net30;net35;net40;net45;net46;net47;net48;netstandard2.0;netstandard2.1;net5.0;net6.0;net7.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>net30;net35;net40;net45;net46;net47;net48;netstandard2.0;netstandard2.1;net5.0;net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <Title>SharpRedis</Title>
     <PackageId>SharpRedis</PackageId>
-    <Version>0.0.7.3</Version>
+    <Version>0.0.8.0</Version>
     <Authors>Kwong</Authors>
     <Description>A pure asynchronous driver of high performance high throughput Redis driver for C#</Description>
     <PackageTags>SharpRedis;sharpredis;Redis;redis;Redics;RedisClient;RedisHelper;csredis;csharpredis;redisclients;C#Redis;Kwong;kwong;q7164518</PackageTags>
@@ -17,7 +17,7 @@
     <PackageProjectUrl>https://github.com/q7164518/SharpRedis</PackageProjectUrl>
     <RepositoryUrl>https://github.com/q7164518/SharpRedis</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageReleaseNotes>Fixed a BUG where local cache did not take effect in broadcast mode</PackageReleaseNotes>
+    <PackageReleaseNotes>Performance optimization, support. NET9</PackageReleaseNotes>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <Nullable>enable</Nullable>
@@ -32,6 +32,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net30|AnyCPU'">
@@ -76,6 +79,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net8.0|AnyCPU'">
     <NoWarn>1701;1702;CS1591</NoWarn>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net9.0|AnyCPU'">
+    <NoWarn>1701;1702;CS1591</NoWarn>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net40|AnyCPU'">
     <NoWarn>1701;1702;CS1591</NoWarn>
   </PropertyGroup>
@@ -95,6 +101,9 @@
     <NoWarn>1701;1702;CS1591</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net7.0|AnyCPU'">
+    <NoWarn>1701;1702;CS1591</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net9.0|AnyCPU'">
     <NoWarn>1701;1702;CS1591</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net8.0|AnyCPU'">
