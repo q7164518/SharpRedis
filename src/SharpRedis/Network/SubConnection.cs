@@ -42,6 +42,7 @@ namespace SharpRedis.Network
         #region ReceiveCompleted
         private protected override void ReceiveCallback(IAsyncResult ar)
         {
+            if (base._socketClient is null) return;
             int bytesReceived = base._socketClient.EndReceive(ar);
             if (bytesReceived <= 0) //closure
             {
@@ -52,7 +53,7 @@ namespace SharpRedis.Network
             }
 
             base._dataPacket.Write(base._receiveBuffer, 0, bytesReceived);
-            if (this._socketClient.Available > 0) goto Continue;
+            if (base._socketClient.Available > 0) goto Continue;
             _ = base._dataPacket.Seek(0, SeekOrigin.Begin);
 
             while (true)
@@ -64,11 +65,6 @@ namespace SharpRedis.Network
                 }
                 if (!DataPacketExtensions.GetNextValue(base._dataPacket, base._encoding, ResultDataType.Bytes, out var data))
                 {
-                    if (this._socketClient.Available <= 0)
-                    {
-                        this.SetException(new RedisException("The data cannot be parsed, possibly due to packet loss"));
-                        break;
-                    }
                     _ = base._dataPacket.Seek(base._dataPacket.Length, SeekOrigin.Begin);
                     break;
                 }

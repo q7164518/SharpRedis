@@ -597,10 +597,6 @@ namespace SharpRedis.Network.Standard
                     }
                     else
                     {
-                        if (this._socketClient.Available <= 0)
-                        {
-                            throw new RedisException("The data cannot be parsed, possibly due to packet loss");
-                        }
                         _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
                         goto Continue;
                     }
@@ -625,10 +621,6 @@ namespace SharpRedis.Network.Standard
                         }
                         else
                         {
-                            if (this._socketClient.Available <= 0)
-                            {
-                                throw new RedisException("The data cannot be parsed, possibly due to packet loss");
-                            }
                             _ = this._dataPacket.Seek(this._dataPacket.Length, SeekOrigin.Begin);
                             goto Continue;
                         }
