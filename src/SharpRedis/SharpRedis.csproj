@@ -5,7 +5,7 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <Title>SharpRedis</Title>
     <PackageId>SharpRedis</PackageId>
-    <Version>0.0.8.2</Version>
+    <Version>0.0.8.3</Version>
     <Authors>Kwong</Authors>
     <Description>A pure asynchronous driver of high performance high throughput Redis driver for C#</Description>
     <PackageTags>SharpRedis;sharpredis;Redis;redis;Redics;RedisClient;RedisHelper;csredis;csharpredis;redisclients;C#Redis;Kwong;kwong;q7164518</PackageTags>

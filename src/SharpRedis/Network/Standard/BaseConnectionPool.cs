@@ -739,29 +739,27 @@ namespace SharpRedis.Network.Standard
             this._disposedValue = true;
             if (disposing)
             {
-                this._idleAutoResetEvent.Set();
+                this._idleAutoResetEvent?.Set();
                 this._masterConnections?.Clear();
                 this._subConnections?.Clear();
 #if LOW_NET || NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-                this._syncAwaitMasterConnection.Clear();
+                this._syncAwaitMasterConnection?.Clear();
 #endif
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 #if !NET5_0_OR_GREATER
-                this._asyncAwaitMasterConnection.Clear();
+                this._asyncAwaitMasterConnection?.Clear();
 #else
-                this._asyncAwaitMasterConnection.Writer.Complete();
+                this._asyncAwaitMasterConnection?.Writer.Complete();
 #endif
 #endif
-                foreach (var connection in this._allConnections)
+                if (this._allConnections?.Count > 0)
+                    foreach (var connection in this._allConnections)
+                        this._allConnections.Clear();
+
+                if (this._idleAutoResetEvent is IDisposable idleAutoResetEventDisposable)
                 {
-                    connection.Value.Dispose();
+                    idleAutoResetEventDisposable.Dispose();
                 }
-                this._allConnections.Clear();
-#if !LOW_NET
-                this._idleAutoResetEvent.Dispose();
-#else
-                (this._idleAutoResetEvent as IDisposable).Dispose();
-#endif
             }
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 #pragma warning disable CS8625
