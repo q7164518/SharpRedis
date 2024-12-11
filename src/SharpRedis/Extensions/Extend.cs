@@ -283,9 +283,9 @@ namespace SharpRedis.Extensions
 #if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
         unsafe internal static byte[] SpanToBytes(this ReadOnlySpan<char> value, System.Text.Encoding encoding)
         {
-            Span<byte> bytesSpan = new byte[encoding.GetMaxByteCount(value.Length)];
-            int byteCount = encoding.GetBytes(value, bytesSpan);
-            return bytesSpan[..byteCount].ToArray();
+            Span<byte> bytesSpan = new byte[encoding.GetByteCount(value)];
+            _ = encoding.GetBytes(value, bytesSpan);
+            return bytesSpan.ToArray();
         }
 #endif
 

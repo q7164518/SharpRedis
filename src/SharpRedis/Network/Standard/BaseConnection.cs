@@ -633,6 +633,7 @@ namespace SharpRedis.Network.Standard
             catch (Exception ex)
             {
                 this._connected = false;
+                if (this._disposedValue || this._dataPacket is null) return;
                 this.SetResult(ex);
                 return;
             }
@@ -699,10 +700,10 @@ namespace SharpRedis.Network.Standard
                 {
                     this._socketClient?.Shutdown(SocketShutdown.Both);
                     this._socketClient?.Close();
-                    (this._socketClient as IDisposable)?.Dispose();
+                    if (this._socketClient is IDisposable socketClientDisposable) socketClientDisposable.Dispose();
                 }
                 this._dataPacket?.Dispose();
-                (this._autoResetEvent as IDisposable)?.Dispose();
+                if (this._autoResetEvent is IDisposable autoResetEventDisposable) autoResetEventDisposable.Dispose();
             }
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 #pragma warning disable CS8625
