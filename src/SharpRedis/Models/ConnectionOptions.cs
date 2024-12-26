@@ -46,8 +46,13 @@ namespace SharpRedis
             {
                 var host = value?.Trim();
                 if (string.IsNullOrEmpty(host)) return;
-                if (!IPAddress.TryParse(host, out var ip)
-                    || (ip.AddressFamily != AddressFamily.InterNetwork && ip.AddressFamily != AddressFamily.InterNetworkV6))
+
+                if (!IPAddress.TryParse(host, out var ip))
+                {
+                    IPHostEntry hostEntry = Dns.GetHostEntry(host);
+                    ip = hostEntry.AddressList[0];
+                }
+                if (ip.AddressFamily != AddressFamily.InterNetwork && ip.AddressFamily != AddressFamily.InterNetworkV6)
                 {
                     throw new RedisInitializationException($"Redis host: [{host}] is not the correct ipv4 or ipv6 address");
                 }
