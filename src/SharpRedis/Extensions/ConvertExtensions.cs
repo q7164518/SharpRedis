@@ -173,7 +173,7 @@ namespace SharpRedis.Extensions
                         {
                             int? nullableInt = numberValue;
 #if NET5_0_OR_GREATER
-                            if (typeof(T).FullName == "System.Object")
+                            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                             {
                                 if (nullableInt is T res) return res;
                                 throw new FormatException($"The data is not a valid Int32, The actual type is {data.GetType().FullName}");
@@ -187,7 +187,7 @@ namespace SharpRedis.Extensions
                         else
                         {
 #if NET5_0_OR_GREATER
-                            if (typeof(T).FullName == "System.Object")
+                            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                             {
                                 if (numberValue is T res) return res;
                                 throw new FormatException($"The data is not a valid Int32, The actual type is {data.GetType().FullName}");
@@ -230,7 +230,7 @@ namespace SharpRedis.Extensions
                         {
                             long? nullableLong = numberValue;
 #if NET5_0_OR_GREATER
-                            if (typeof(T).FullName == "System.Object")
+                            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                             {
                                 if (nullableLong is T res) return res;
                                 throw new FormatException($"The data is not a valid Int64, The actual type is {data.GetType().FullName}");
@@ -244,7 +244,7 @@ namespace SharpRedis.Extensions
                         else
                         {
 #if NET5_0_OR_GREATER
-                            if (typeof(T).FullName == "System.Object")
+                            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                             {
                                 if (numberValue is T res) return res;
                                 throw new FormatException($"The data is not a valid Int64, The actual type is {data.GetType().FullName}");
@@ -287,7 +287,7 @@ namespace SharpRedis.Extensions
                         {
                             ulong? nullableULong = numberValue;
 #if NET5_0_OR_GREATER
-                            if (typeof(T).FullName == "System.Object")
+                            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                             {
                                 if (nullableULong is T res) return res;
                                 throw new FormatException($"The data is not a valid UInt64, The actual type is {data.GetType().FullName}");
@@ -301,7 +301,7 @@ namespace SharpRedis.Extensions
                         else
                         {
 #if NET5_0_OR_GREATER
-                            if (typeof(T).FullName == "System.Object")
+                            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                             {
                                 if (numberValue is T res) return res;
                                 throw new FormatException($"The data is not a valid UInt64, The actual type is {data.GetType().FullName}");
@@ -344,7 +344,7 @@ namespace SharpRedis.Extensions
                         {
                             double? nullableDouble = numberValue;
 #if NET5_0_OR_GREATER
-                            if (typeof(T).FullName == "System.Object")
+                            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                             {
                                 if (nullableDouble is T res) return res;
                                 throw new FormatException($"The data is not a valid Double, The actual type is {data.GetType().FullName}");
@@ -358,7 +358,7 @@ namespace SharpRedis.Extensions
                         else
                         {
 #if NET5_0_OR_GREATER
-                            if (typeof(T).FullName == "System.Object")
+                            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                             {
                                 if (numberValue is T res) return res;
                                 throw new FormatException($"The data is not a valid Double, The actual type is {data.GetType().FullName}");
@@ -376,7 +376,7 @@ namespace SharpRedis.Extensions
                         {
                             var boolValue = boolean.ToBoolean();
 #if NET5_0_OR_GREATER
-                            if (typeof(T).FullName == "System.Object")
+                            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                             {
                                 if (boolValue is T res) return res;
                                 throw new FormatException($"The data is not a valid Boolean, The actual type is {data.GetType().FullName}");
@@ -407,7 +407,7 @@ namespace SharpRedis.Extensions
                             {
                                 CoordinateValue? nullableCoordinate = result;
 #if NET5_0_OR_GREATER
-                                if (typeof(T).FullName == "System.Object")
+                                if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                                 {
                                     if (nullableCoordinate is T res) return res;
                                     throw new FormatException($"The data is not a valid CoordinateValue, The actual type is {data.GetType().FullName}");
@@ -421,7 +421,7 @@ namespace SharpRedis.Extensions
                             else
                             {
 #if NET5_0_OR_GREATER
-                                if (typeof(T).FullName == "System.Object")
+                                if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                                 {
                                     if (result is T res) return res;
                                     throw new FormatException($"The data is not a valid CoordinateValue, The actual type is {data.GetType().FullName}");
@@ -1376,7 +1376,7 @@ namespace SharpRedis.Extensions
                             throw new FormatException($"Value {data} is not defined in enum {data.GetType().FullName}");
                         }
 #if NET5_0_OR_GREATER
-                        if (typeof(T).FullName == "System.Object")
+                        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
                         {
                             if (status is T res) return res;
                             throw new FormatException($"Value {data} is not defined in enum {data.GetType().FullName}");
