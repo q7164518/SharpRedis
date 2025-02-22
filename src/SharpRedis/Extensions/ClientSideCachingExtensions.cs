@@ -141,13 +141,18 @@ namespace SharpRedis.Extensions
             var keys = command.GetKeys(keyPrefix);
             for (uint keyIndex = 0; keyIndex < keys.Length; keyIndex++)
             {
+                bool isMatched = false;
+                var itemKey = keys[keyIndex];
                 for (uint prefixeIndex = 0; prefixeIndex < clientSideCaching.KeyPrefixes.Length; prefixeIndex++)
                 {
-                    if (!keys[keyIndex].StartsWith(clientSideCaching.KeyPrefixes[prefixeIndex]))
+                    var itemKeyPrefixe = clientSideCaching.KeyPrefixes[prefixeIndex];
+                    if (itemKey.StartsWith(itemKeyPrefixe))
                     {
-                        return false;
+                        isMatched = true;
+                        break;
                     }
                 }
+                if (!isMatched) return false;
             }
             return true;
         }
@@ -166,7 +171,6 @@ namespace SharpRedis.Extensions
             }
 
             var keys = command.GetKeys(keyPrefix);
-
             if (clientSideCaching.KeyPatterns?.Length > 0)
             {
                 for (uint keyIndex = 0; keyIndex < keys.Length; keyIndex++)
