@@ -1,82 +1,45 @@
-﻿#if NET5_0_OR_GREATER
-#pragma warning disable IDE0090
-#endif
-using SharpRedis.Models;
+﻿using SharpRedis.Entities.Command;
+using SharpRedis.Enums;
+using System;
 
-namespace SharpRedis.Commands
+namespace SharpRedis.Commands;
+
+internal static class PubSubCommands
 {
-    internal static class PubSubCommands
+    private readonly static SharpValue _subscribe = new("SUBSCRIBE", CommandItemCategory.Command);
+    private readonly static SharpValue _publish = new("PUBLISH", CommandItemCategory.Command);
+    private readonly static SharpValue _psubscribe = new("PSUBSCRIBE", CommandItemCategory.Command);
+
+    internal static CommandPacket Subscribe(string channel)
     {
-        internal static CommandPacket Publish<TMessage>(string channel, TMessage message) where TMessage : class
-        {
-            return new CommandPacket("PUBLISH", CommandMode.Pub)
-                .WriteValue(channel)
-                .WriteValue(message);
-        }
+        return new CommandPacket(PubSubCommands._subscribe, CommandMode.Sub | CommandMode.WithoutResult | CommandMode.DoNotReuseConnection)
+            .WriteArguments(channel);
+    }
 
-        internal static CommandPacket SPublish<TMessage>(string shardChannel, TMessage message) where TMessage : class
-        {
-            return new CommandPacket("SPUBLISH", CommandMode.Pub)
-                .WriteValue(shardChannel)
-                .WriteValue(message);
-        }
+    internal static CommandPacket Subscribe(SharpValueSpan channels)
+    {
+        if (channels.IsEmpty) throw new NotSupportedException("Please specify at least one channel.");
+        return new CommandPacket(PubSubCommands._subscribe, CommandMode.Sub | CommandMode.WithoutResult | CommandMode.DoNotReuseConnection)
+            .WriteArguments(channels);
+    }
 
-        internal static CommandPacket Subscribe() => new CommandPacket("SUBSCRIBE", CommandMode.Sub | CommandMode.WithoutResult);
+    internal static CommandPacket Publish(string channel, SharpValue message)
+    {
+        return new CommandPacket(PubSubCommands._publish, CommandMode.Pub)
+            .WriteArguments(channel)
+            .WriteArguments(message);
+    }
 
-        internal static CommandPacket SSubscribe() => new CommandPacket("SSUBSCRIBE", CommandMode.Sub | CommandMode.WithoutResult);
+    internal static CommandPacket PSubscribe(string pattern)
+    {
+        return new CommandPacket(PubSubCommands._psubscribe, CommandMode.PSub | CommandMode.WithoutResult | CommandMode.DoNotReuseConnection)
+            .WriteArguments(pattern);
+    }
 
-        internal static CommandPacket PSubscribe() => new CommandPacket("PSUBSCRIBE", CommandMode.Sub | CommandMode.WithoutResult);
-
-        internal static CommandPacket UnSubscribe() => new CommandPacket("UNSUBSCRIBE", CommandMode.UnSub | CommandMode.WithoutResult);
-
-        internal static CommandPacket PUnSubscribe() => new CommandPacket("PUNSUBSCRIBE", CommandMode.UnSub | CommandMode.WithoutResult);
-
-        internal static CommandPacket SUnSubscribe() => new CommandPacket("SUNSUBSCRIBE", CommandMode.UnSub | CommandMode.WithoutResult);
-
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket PubSubChannels(string? pattern)
-#else
-        internal static CommandPacket PubSubChannels(string pattern)
-#endif
-        {
-            return new CommandPacket("PUBSUB", CommandMode.Pub)
-                .WriteArg("CHANNELS")
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteValue(!string.IsNullOrEmpty(pattern), pattern!);
-#else
-                .WriteValue(!string.IsNullOrEmpty(pattern), pattern);
-#endif
-        }
-
-        internal static CommandPacket PubSubNumPAt() => new CommandPacket("PUBSUB", CommandMode.Pub).WriteArg("NUMPAT");
-
-        internal static CommandPacket PubSubNumSub(string[] channels)
-        {
-            return new CommandPacket("PUBSUB", CommandMode.Pub)
-                .WriteArg("NUMSUB")
-                .WriteValues(channels);
-        }
-
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket PubSubShardChannels(string? pattern)
-#else
-        internal static CommandPacket PubSubShardChannels(string pattern)
-#endif
-        {
-            return new CommandPacket("PUBSUB", CommandMode.Pub)
-                .WriteArg("SHARDCHANNELS")
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteValue(!string.IsNullOrEmpty(pattern), pattern!);
-#else
-                .WriteValue(!string.IsNullOrEmpty(pattern), pattern);
-#endif
-        }
-
-        internal static CommandPacket PubSubShardNumSub(string[] shardchannels)
-        {
-            return new CommandPacket("PUBSUB", CommandMode.Pub)
-                .WriteArg("SHARDNUMSUB")
-                .WriteValues(shardchannels);
-        }
+    internal static CommandPacket PSubscribe(SharpValueSpan patterns)
+    {
+        if (patterns.IsEmpty) throw new NotSupportedException("Please specify at least one pattern.");
+        return new CommandPacket(PubSubCommands._psubscribe, CommandMode.PSub | CommandMode.WithoutResult | CommandMode.DoNotReuseConnection)
+            .WriteArguments(patterns);
     }
 }

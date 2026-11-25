@@ -1,15 +1,5 @@
-﻿#if NET8_0
-#pragma warning disable IDE0290
-#endif
-using System;
+﻿using System;
 
-namespace SharpRedis
-{
-    public sealed class RedisInitializationException : Exception
-    {
-        public RedisInitializationException(string msg)
-            : base(msg)
-        {
-        }
-    }
-}
+namespace SharpRedis.Exceptions;
+
+public sealed class RedisInitializationException(string msg) : Exception(msg);

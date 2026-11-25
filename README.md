@@ -1,247 +1,277 @@
-﻿<h1 align="center">⚔️ SharpRedis</h1>
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/q7164518/SharpRedis/main/SharpRedis.png" width="44" height="44" align="middle" alt="">
+  SharpRedis
+</h1>
+
 <p align="center">
-    <span>English</span> |  
-    <a href="./README_zh_cn.md">中文</a>
-</p>
-<p align="center">
-  <b>SharpRedis</b> is a high-performance Redis driver implemented in C#, designed to solve common developer pain points—<b>No more Timeout issues</b>, <b>No more data packet misalignment</b>, and no limitations on older .NET versions. If you're facing these problems, try SharpRedis today!
+  <a href="./README_zh_cn.md">中文</a> · <strong>English</strong>
 </p>
 
----
+**SharpRedis** is a high-performance Redis client for .NET. It uses an asynchronous, event-driven architecture and provides synchronous and asynchronous command APIs, pipelining, transactions, client-side caching, and support for multiple Redis deployment modes.
 
-## ✨ Why Choose SharpRedis?
+[Quick start](#quick-start) · [Connection modes](#connection-modes) · [Advanced usage](#advanced-usage) · [Dependency injection](#dependency-injection) · [Connection configuration](#connection-configuration) · [NuGet](#nuget)
 
-**SharpRedis** offers the following exceptional features to help you handle complex Redis needs with ease:
+## Key features
 
-- **🚀 Asynchronous Driver:** Fully based on an asynchronous programming model, taking full advantage of modern .NET capabilities to deliver high performance and responsiveness.
+| Feature | Description |
+| --- | --- |
+| Asynchronous I/O and cancellation | Network I/O is asynchronous and event-driven. Use a command's `CancellationToken` parameter to cancel the wait. |
+| Target frameworks | Builds are available for .NET Standard 2.0 and 2.1, and for .NET 5 through .NET 11. |
+| Commands grouped by type | Access commands through APIs such as `redis.String` and `redis.Hash`. Supported commands include hash field expiration. |
+| Pipelining | Send multiple commands in batches to reduce network round trips. |
+| Client-side caching | Use the client-side caching mechanism introduced in Redis 6 to reduce repeated reads. |
+| Unix domain sockets | Connect through a Unix domain socket using the .NET Standard 2.1 build or later. See the [Unix socket configuration guide](./docs/UnixSocket.en.md). |
+| Character spans | Pass a `ReadOnlySpan<char>` to commands that accept `SharpValue` without creating an intermediate string. The conversion copies the character data. |
 
-- **🛠️ Wide Framework Support:** From .NET Framework 3.0 to .NET 8.0, SharpRedis covers almost all .NET versions, making it suitable for a wide range of project requirements.
+## Quick start
 
-- **⚡ Fully Asynchronous Event-Driven:** Ensures all operations are handled via asynchronous event processing, designed for high concurrency scenarios, maintaining top-tier performance even under heavy traffic and high throughput.
+Install SharpRedis from NuGet.
 
-- **✔️ Perfect Asynchronous Support:** Since **.NET Framework 4.0+**, all SharpRedis methods support asynchronous operations, making it easy to handle complex non-blocking tasks.
+```bash
+dotnet add package SharpRedis
+```
 
-- **🏎️ Redis Local Caching Support:** Designed for efficient read operations, fully compatible with the local caching feature introduced in Redis 6.x, significantly improving data access speed.
+Connect to a local Redis instance, then write and read a key.
 
-- **📦 Supports Latest Redis Commands:** SharpRedis stays up to date with Redis version updates, fully supporting up to Redis 7.4.0, including the latest commands like Hash expiry, ensuring you're always working with the latest features.
-
-- **📡 Pipeline Command Support:** Supports Redis's pipeline command feature, allowing you to execute multiple commands in batches, reducing network latency and improving overall performance.
-
-- **🛡️ Command Isolation:** Commands are not mixed up; each command type is isolated. For example, use redis.String.Get... to operate on strings, and redis.Hash.HSet... to work with hashes.
-
-- **🐦‍🔥 Flexible Cancellation or Timeout:** All methods support the passing of a CancellationToken, allowing for graceful operation cancellations.
-
-- **🧮 Span\<char\> Support:** Span is a high-performance feature of .NET. If you've transformed a string into Span\<char\> for calculation or slicing, it can be directly stored in Redis without generating additional strings.
----
-
-## 💼 Who Should Use SharpRedis?
-
-**SharpRedis** is designed for all .NET developers as a Redis client, providing a powerful, flexible, and efficient solution, particularly suitable for scenarios that require asynchronous programming and high concurrency. Whether you're handling large-scale data storage or building an efficient distributed cache, SharpRedis offers an ideal solution.
-
-## 🚀 Quick Start
 ```csharp
 using SharpRedis;
 
-var redis = Redis.UseStandalone("host=127.0.0.1,port=6379");
-redis.String.Set("key1", "key1");
+using var redis = Redis.UseStandalone("host=127.0.0.1,port=6379");
 
-var get = redis.String.Get("key1");
-
-// redis.Hash operates on Hashes
-// redis.PubSub operates on Publish/Subscribe
-// redis.Connection operates on connection (currently limited, more features will be added)
-// redis.List operates on Lists
-// redis.Bitmap operates on Bitmaps (though essentially strings, they are distinguished)
-// redis.Set operates on Sets
-// redis.SortedSet operates on Sorted Sets
-// redis.Stream operates on Streams
-// redis.HyperLogLog operates on HyperLogLogs
-// redis.Geospatial operates on GEO types
-// redis.Script operates on LUA scripts and functions
-// redis.Key operates on Redis keys
-// redis.Server operates on Redis server (currently limited, more features will be added)
+await redis.String.SetAsync("greeting", "Hello, Redis!");
+var greeting = await redis.String.GetAsync("greeting");
 ```
 
-## 🚀 Using with Microsoft.Extensions.DependencyInjection
+For synchronous calls, use `redis.String.Set(...)` and `redis.String.Get(...)`.
+
+### Command groups
+
+| Purpose | API |
+| --- | --- |
+| Core data types | `redis.String`, `redis.Hash`, `redis.List`, `redis.Set`, `redis.SortedSet` |
+| Specialized data types | `redis.Bitmap`, `redis.Stream`, `redis.HyperLogLog`, `redis.Geo`, `redis.Array` |
+| Pub/Sub and scripting | `redis.PubSub`, `redis.Script` (Lua), `redis.Func` (Redis Functions) |
+| Keys, connections, and server operations | `redis.Key`, `redis.Connection`, `redis.Server` |
+| Probabilistic data structures | `redis.Modules.Bloom` (Bloom filters), `redis.Modules.Cuckoo` (Cuckoo filters) |
+
+## Connection modes
+
+| Mode | API | When to use |
+| --- | --- | --- |
+| Standalone | `Redis.UseStandalone` | Connect to a single Redis instance. |
+| Fixed primary and replicas | `Redis.UseMasterSlave` | Split reads and writes across an existing replication topology. |
+| Sentinel | `Redis.UseSentinel` | Discover the current primary through Redis Sentinel and follow failovers. |
+| Cluster | `Redis.UseCluster` | Route commands to Redis Cluster nodes by hash slot. |
+
+### Fixed primary and replicas
+
+Writes go to the primary, and replicas handle routine reads. Each replica has its own connection string. See the [primary and replica configuration guide](./docs/MasterSlave.en.md).
+
 ```csharp
-// Install dependency
-// Install-Package SharpRedis.DependencyInjection
-
-using SharpRedis.DependencyInjection;
-
-// Register SharpRedis
-services.AddSharpRedisStandalone("host=127.0.0.1,port=6379");
-// Register SharpRedis with local cache support
-services.AddSharpRedisStandalone<LocalCache>("host=127.0.0.1,port=6379");
-
-// Named registration
-// Requires Microsoft.Extensions.DependencyInjection.Abstractions 8.0.0 or higher
-// The required NuGet package is SharpRedis.DependencyInjectionKeyedService
-// Install-Package SharpRedis.DependencyInjectionKeyedService
-services.AddSharpRedisStandalone("host=127.0.0.1,port=6379", serviceName: "named");
+using var redis = Redis.UseMasterSlave(
+    "host=127.0.0.1,port=6379",
+    new[] { "host=127.0.0.1,port=6380", "host=127.0.0.1,port=6381" });
 ```
 
-## 🚀 Using with Autofac
+### Sentinel
+
+The first argument controls whether reads and writes are routed separately. With `false`, all commands go to the current primary, and SharpRedis follows Sentinel failovers. See the [Sentinel configuration guide](./docs/Sentinel.en.md).
+
 ```csharp
-// Install dependency
-// Install-Package SharpRedis.Autofac
-
-using SharpRedis.Autofac;
-
-// Register SharpRedis
-containerBuilder.AddSharpRedisStandalone("host=127.0.0.1,port=6379");
-// Register SharpRedis with local cache support
-containerBuilder.AddSharpRedisStandalone<LocalCache>("host=127.0.0.1,port=6379");
-
-// Named registration
-containerBuilder.AddSharpRedisStandalone("host=127.0.0.1,port=6379", serviceName: "named");
+using var redis = Redis.UseSentinel(
+    false,
+    "mastername=mymaster",
+    new[] { "host=127.0.0.1,port=26379", "host=127.0.0.1,port=26380" });
 ```
 
-## 🚀 Using with Unity
+### Cluster
+
+Provide a seed node and SharpRedis discovers the cluster topology. The first argument controls whether reads and writes are routed separately. See the [cluster configuration guide](./docs/Cluster.en.md).
+
 ```csharp
-// Install dependency
-// Install-Package SharpRedis.Unity
-
-using SharpRedis.Unity;
-
-// Register SharpRedis
-unityContainer.AddSharpRedisStandalone("host=127.0.0.1,port=6379");
-// Register SharpRedis with local cache support
-unityContainer.AddSharpRedisStandalone<LocalCache>("host=127.0.0.1,port=6379");
-
-// Named registration
-unityContainer.AddSharpRedisStandalone("host=127.0.0.1,port=6379", serviceName: "named");
+using var redis = Redis.UseCluster(true, "host=127.0.0.1,port=7000");
 ```
 
-## ⚙️ Connection String Configuration
-| Option          | Default Value | Description|
-| --------------- | ------------- | ------------------- |
-| host            | 127.0.01      | Redis server host address |
-| port            | 6379          | Redis server port number |
-| password        | null          | Redis password (optional if not set) |
-| user            | null          | Redis user (optional if not set) |
-| encoding        | utf-8         | Data encoding protocol |
-| connectname     | null          | Connection name prefix |
-| prefix          | null          | Key prefix, applied to all key operations if set |
-| defaultdatabase | 0             | Default database connection |
-| maxpoolsize     | 100           | Maximum pool size; it's not recommended to exceed 300 |
-| minpoolsize     | 3             | Minimum pool size; it's not recommended to set this too high, as it will maintain many connections |
-| commandtimeout  | 60000         | Global execution timeout in milliseconds; flexible control via method's CancellationToken is recommended instead of adjusting this |
-| idletimeout     | 30000         | Idle connection reclaim time in milliseconds |
-| subconcurrency  | 5             | Maximum number of subscriptions per connection; additional subscriptions will create new connections |
-| resp            | 2             | RESP protocol version (2 or 3). Version 3 requires Redis 6.x or higher |
-| buffer          | 4096 (4kb)    | Buffer size, not recommended to adjust unless your Redis data exceeds 4kb per read |
+## Advanced usage
 
-> Complete example: host=127.0.0.1,port=6379,password=123456,user=redis,encoding=utf-8,connectname=abc,prefix=myprefix,defaultdatabase=0,maxpoolsize=100,minpoolsize=3,commandtimeout=60000,idletimeout=30000,subconcurrency=5,resp=3,buffer=4096
+The examples below use the `redis` instance from the quick start where applicable.
 
-> Options can be in any order
+### Pipelining
 
-> If you don't want to use a connection string, you can configure it via code
+Queue commands in the pipeline, then call `ExecutePipelining()` to run them and retrieve the results.
+
 ```csharp
-var redis = Redis.UseStandalone(option =>
+using var pipe = redis.BeginPipelining();
+_ = pipe.String.Set("greeting", "Hello, Redis!");
+_ = pipe.String.Get("greeting");
+_ = pipe.Hash.HGet("profile", "name");
+
+var results = pipe.ExecutePipelining();
+```
+
+### Temporarily switch databases
+
+Call `Switch(1)` to get a temporary client for database 1. You can also start a pipeline on that client. Redis Cluster always uses database `0`.
+
+```csharp
+using var db = redis.Switch(1);
+var value = db.String.Get("greeting");
+
+using var pipe = db.BeginPipelining();
+_ = pipe.String.Get("greeting");
+var results = pipe.ExecutePipelining();
+```
+
+### Transactions
+
+Call `UseTransaction()` to start a transaction, queue commands, and call `Exec()` to execute it.
+
+```csharp
+using var transaction = redis.UseTransaction();
+transaction.String.Set("greeting", "Hello, Redis!");
+
+var results = transaction.Exec();
+```
+
+### Client-side caching
+
+The built-in cache can match keys by prefix. This example caches keys that start with `profile:` for one minute.
+
+```csharp
+using System;
+using SharpRedis;
+
+using var redis = Redis.UseStandalone("host=127.0.0.1,port=6379", options =>
 {
-	option.Host = "127.0.01";
-	option.Port = 6379;
+    options.UseClientCaching(new[] { "profile:" }, TimeSpan.FromMinutes(1));
 });
 ```
 
-## 🔗 Nuget
-| Package                                    | NuGet | Downloads |
-|------------------------------------------- | -------- | ------ |
+To provide a custom cache, derive from `ClientCachingBase` and register it with `options.UseClientCaching(cache)`. See the [custom cache example](./examples/Example_NET10/LocalCache.cs).
+
+## Dependency injection
+
+In these examples, `LocalCache` is provided by your application. Basic registration, registration with client-side caching, and named registration are separate options.
+
+### Microsoft.Extensions.DependencyInjection
+
+Basic registration uses `SharpRedis.DependencyInjection`. Named registration uses `SharpRedis.DependencyInjectionKeyedService` and requires `Microsoft.Extensions.DependencyInjection.Abstractions` 8.0.0 or later.
+
+```csharp
+using SharpRedis.DependencyInjection;
+
+// Basic registration
+services.AddSharpRedisStandalone("host=127.0.0.1,port=6379");
+
+// Enable client-side caching
+services.AddSharpRedisStandalone<LocalCache>("host=127.0.0.1,port=6379");
+
+// Named registration
+services.AddSharpRedisStandalone("host=127.0.0.1,port=6379", serviceName: "named");
+```
+
+### Autofac
+
+Install `SharpRedis.Autofac`.
+
+```csharp
+using SharpRedis.Autofac;
+
+containerBuilder.AddSharpRedisStandalone("host=127.0.0.1,port=6379");
+containerBuilder.AddSharpRedisStandalone<LocalCache>("host=127.0.0.1,port=6379");
+containerBuilder.AddSharpRedisStandalone("host=127.0.0.1,port=6379", serviceName: "named");
+```
+
+### Unity
+
+Install `SharpRedis.Unity`.
+
+```csharp
+using SharpRedis.Unity;
+
+unityContainer.AddSharpRedisStandalone("host=127.0.0.1,port=6379");
+unityContainer.AddSharpRedisStandalone<LocalCache>("host=127.0.0.1,port=6379");
+unityContainer.AddSharpRedisStandalone("host=127.0.0.1,port=6379", serviceName: "named");
+```
+
+## Connection configuration
+
+### Connection strings
+
+A connection string contains comma-separated `key=value` pairs in any order. The table lists common options.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `host` | `127.0.0.1` | Redis host or the absolute path to a Unix socket. |
+| `port` | `6379` | Redis TCP port. |
+| `user` | Unset | Redis ACL username. |
+| `password` | Unset | Redis authentication password. |
+| `encoding` | `utf-8` | Data encoding. |
+| `connectname` | Empty string | Connection name prefix. |
+| `prefix` | Unset | Prefix automatically prepended to Redis keys. |
+| `suffix` | Unset | Suffix automatically appended to Redis keys. |
+| `database` | `0` | Default database index. |
+| `commandtimeout` | `60000` | Command execution timeout in milliseconds. |
+| `heartbeatinterval` | `60000` | Heartbeat interval in milliseconds. |
+| `reconnectinterval` | `5000` | Reconnect interval in milliseconds. |
+| `resp` | `2` | RESP protocol version. Use `2` or `3`. RESP3 requires Redis 6 or later. |
+| `ssl` | `false` | Enables TLS. |
+| `sslhost` | Value of `host` | Server name used for certificate validation. |
+| `checkcertificaterevocation` | `false` | Enables certificate revocation checks. |
+
+```text
+host=127.0.0.1,port=6379,database=0,resp=3,prefix=myapp:
+```
+
+### Configuration in code
+
+Use a configuration callback to set connection options, including the read buffer size.
+
+```csharp
+using var redis = Redis.UseStandalone(options =>
+{
+    options.Host = "127.0.0.1";
+    options.Port = 6379;
+    options.BuffSize = 4096;
+});
+```
+
+## NuGet
+
+| Package | Version | Downloads |
+| --- | --- | --- |
 | SharpRedis                                 | [![nuget](https://img.shields.io/nuget/v/SharpRedis.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis?groupby=Version) |
 | SharpRedis.Autofac                         | [![nuget](https://img.shields.io/nuget/v/SharpRedis.Autofac.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis.Autofac) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.Autofac.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis.Autofac?groupby=Version) |
 | SharpRedis.Unity                           | [![nuget](https://img.shields.io/nuget/v/SharpRedis.Unity.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis.Unity) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.Unity.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis.Unity?groupby=Version) |
 | SharpRedis.DependencyInjection             | [![nuget](https://img.shields.io/nuget/v/SharpRedis.DependencyInjection.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis.DependencyInjection) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.DependencyInjection.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis.DependencyInjection?groupby=Version) |
 | SharpRedis.DependencyInjectionKeyedService | [![nuget](https://img.shields.io/nuget/v/SharpRedis.DependencyInjectionKeyedService.svg?style=flat-square)](https://www.nuget.org/packages/SharpRedis.DependencyInjectionKeyedService) | [![stats](https://img.shields.io/nuget/dt/SharpRedis.DependencyInjectionKeyedService.svg?style=flat-square)](https://www.nuget.org/stats/packages/SharpRedis.DependencyInjectionKeyedService?groupby=Version) |
 
-## 📡 Using Command Pipelining
-```csharp
-using var pipe = redis.BeginPipelining();
-_ = pipe.String.Set("key", "value");
-_ = pipe.String.Get("key");
-_ = pipe.Hash.HGet("hash", "field");
-var result = pipe.ExecutePipelining();
-```
+## Support the project
 
-## 📡 Temporary Database Switching
-```csharp
-using var db = redis.SwitchDatabase(1);
-db.String.Get("key");
-// After switching databases, you can continue to use pipelining
-using var pipe = db.BeginPipelining();
-...
-var result = pipe.ExecutePipelining();
-```
+If SharpRedis has helped you, consider giving the project a star. Thanks for using and supporting SharpRedis!
 
-## ⏳ Using Transactions
-```csharp
-using var tran = redis.UseTransaction();
-tran.String.Set("key", "value");
-...
-var result = tran.Exec(); // Execute the transaction
-```
+<table>
+  <tr><th>WeChat Pay</th><th>Alipay</th></tr>
+  <tr>
+    <td>
+      <img src="https://raw.githubusercontent.com/q7164518/SharpRedis/main/wechat.png" alt="WeChat Pay QR code" width="240">
+    </td>
+    <td>
+      <img src="https://raw.githubusercontent.com/q7164518/SharpRedis/main/alipay.png" alt="Alipay QR code" width="240">
+    </td>
+  </tr>
+</table>
 
-## 🏎️ Enabling Local Cache Support
-```csharp
-var redis = Redis.UseStandalone(option =>
-{
-    option.Host = "127.0.0.1";
-    option.Port = 6379;
-    option.Password = "123456";
-    option.SetClientSideCaching(new LocalCache());
-});
+## Legal Use Disclaimer
 
-// Custom local cache implementation
-public class LocalCache : ClientSideCachingStandard
-{
-    private readonly MemoryCache _cache;
+SharpRedis is an open-source project intended for legitimate software development, research, and educational purposes.
 
-    public LocalCache()
-    {
-        this._cache = new MemoryCache(new MemoryCacheOptions { });
-    }
+The SharpRedis Project does not endorse, encourage, or support the use of this software for illegal activities, cybercrime, unauthorized access, data theft, fraud, or any other activities that violate applicable laws and regulations.
 
-    public override ClientSideCachingMode Mode => ClientSideCachingMode.Default;
+Users are solely responsible for ensuring that their use of SharpRedis complies with all applicable laws and regulations.
 
-    public override string[]? KeyPatterns => ["localcache_test*"];
+This statement expresses the project's position on responsible use and does not impose additional restrictions on the rights granted under the MIT License.
 
-    public override string[]? WithoutKeyPatterns => ["nocache*"];
+## License
 
-    public override string[]? KeyPrefixes => ["localcache_test:"];
-
-    protected override bool Clear()
-    {
-        this._cache.Clear();
-        return true;
-    }
-
-    protected override bool Delete(in ClientSideCacheKey key)
-    {
-        this._cache.Remove(key);
-        return true;
-    }
-
-    protected override bool Set(in ClientSideCacheKey key, object value)
-    {
-        this._cache.Set(key, value);
-        return true;
-    }
-
-    protected override bool TryGet(in ClientSideCacheKey key, [NotNullWhen(true)] out object? value)
-    {
-        return this._cache.TryGetValue(key, out value);
-    }
-}
-```
-
-> ❤ If this project has been helpful to you, feel free to donate. Your donation is the greatest support I can receive. Thanks to all the donors ❤
-
-### Alipay
-<img src="./alipay.png" alt="Alipay" width="200" height="200">
-
-### WeChat
-<img src="./wechat.png" alt="WeChat" width="200" height="200">
-
-## 🗄 License
-
-[MIT](LICENSE)
+[MIT](./LICENSE)

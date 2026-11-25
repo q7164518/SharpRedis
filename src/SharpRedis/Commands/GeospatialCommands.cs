@@ -1,342 +1,416 @@
-﻿using SharpRedis.Models;
-using System.Collections.Generic;
+﻿using SharpRedis.Entities.Command;
+using SharpRedis.Enums;
+using SharpRedis.Extensions;
+using System;
+using static SharpRedis.RedisGeospatial;
 
-namespace SharpRedis.Commands
+namespace SharpRedis.Commands;
+
+internal static class GeospatialCommands
 {
-    internal static class GeospatialCommands
+    private static readonly SharpValue _geoadd = new("GEOADD", CommandItemCategory.Command);
+    private static readonly SharpValue _geodist = new("GEODIST", CommandItemCategory.Command);
+    private static readonly SharpValue _geohash = new("GEOHASH", CommandItemCategory.Command);
+    private static readonly SharpValue _geopos = new("GEOPOS", CommandItemCategory.Command);
+    private static readonly SharpValue _georadius = new("GEORADIUS", CommandItemCategory.Command);
+    private static readonly SharpValue _georadius_ro = new("GEORADIUS_RO", CommandItemCategory.Command);
+    private static readonly SharpValue _georadiusbymember = new("georadiusbymember", CommandItemCategory.Command);
+    private static readonly SharpValue _georadiusbymember_ro = new("georadiusbymember_ro", CommandItemCategory.Command);
+    private static readonly SharpValue _geosearch = new("GEOSEARCH", CommandItemCategory.Command);
+    private static readonly SharpValue _geosearchstore = new("GEOSEARCHSTORE", CommandItemCategory.Command);
+
+    internal static CommandPacket GeoAdd(SharpValue key, GeoExist exist, bool ch, GeoMember position)
     {
-        private static CommandPacket GeoAdd(string key, NxXx nxx, bool ch)
+        return new CommandPacket(GeospatialCommands._geoadd, CommandMode.Geo | CommandMode.WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(exist is GeoExist.NX, "NX")
+            .WriteArguments(exist is GeoExist.XX, "XX")
+            .WriteArguments(ch, "CH")
+            .WriteArguments(position.Longitude.ToBytes())
+            .WriteArguments(position.Latitude.ToBytes())
+            .WriteArguments(position.Member);
+    }
+
+    internal static CommandPacket GeoAdd(SharpValue key, GeoExist exist, bool ch, ReadOnlySpan<GeoMember> positions)
+    {
+        if (positions.IsEmpty) throw new NotSupportedException("Please specify at least one position.");
+        var command = new CommandPacket(GeospatialCommands._geoadd, CommandMode.Geo | CommandMode.WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(exist is GeoExist.NX, "NX")
+            .WriteArguments(exist is GeoExist.XX, "XX")
+            .WriteArguments(ch, "CH");
+        foreach (var position in positions)
         {
-            return new CommandPacket("GEOADD", CommandMode.Write)
-                .WriteKey(key)
-                .WriteArg(nxx != NxXx.None, nxx == NxXx.Xx ? "XX" : "NX")
-                .WriteArg(ch, "CH");
+            _ = command.WriteArguments(position.Longitude.ToBytes())
+                .WriteArguments(position.Latitude.ToBytes())
+                .WriteArguments(position.Member);
+        }
+        return command;
+    }
+
+    internal static CommandPacket GeoDist(SharpValue key, SharpValue member1, SharpValue member2, GeoDistUnit unit)
+    {
+        var command = new CommandPacket(GeospatialCommands._geodist, CommandMode.Geo | CommandMode.WithRead | CommandMode.WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(member1)
+            .WriteArguments(member2);
+        return unit switch
+        {
+            GeoDistUnit.M => command.WriteArguments("m"),
+            GeoDistUnit.KM => command.WriteArguments("km"),
+            GeoDistUnit.MI => command.WriteArguments("mi"),
+            GeoDistUnit.FT => command.WriteArguments("ft"),
+            _ => command,
+        };
+    }
+
+    internal static CommandPacket GeoHash(SharpValue key, SharpValue member)
+    {
+        return new CommandPacket(GeospatialCommands._geohash, CommandMode.Geo | CommandMode.WithRead | CommandMode.WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(member);
+    }
+
+    internal static CommandPacket GeoHash(SharpValue key, SharpValueSpan members)
+    {
+        if (members.IsEmpty) throw new NotSupportedException("Please specify at least one member.");
+        return new CommandPacket(GeospatialCommands._geohash, CommandMode.Geo | CommandMode.WithRead | CommandMode.WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(members);
+    }
+
+    internal static CommandPacket GeoPos(SharpValue key, SharpValue member)
+    {
+        return new CommandPacket(GeospatialCommands._geopos, CommandMode.Geo | CommandMode.WithRead | CommandMode.WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(member);
+    }
+
+    internal static CommandPacket GeoPos(SharpValue key, SharpValueSpan members)
+    {
+        if (members.IsEmpty) throw new NotSupportedException("Please specify at least one member.");
+        return new CommandPacket(GeospatialCommands._geopos, CommandMode.Geo | CommandMode.WithRead | CommandMode.WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(members);
+    }
+
+    internal static CommandPacket GeoRadius(
+        SharpValue key,
+        GeoCoordinate pos,
+        GeoRadiusArg radius,
+        bool withCoord,
+        bool withDist,
+        bool withHash,
+        long? count,
+        bool any,
+        GeoSort sort,
+        SharpValue? storeKey,
+        bool storeDist)
+    {
+        return new CommandPacket(GeospatialCommands._georadius, CommandMode.Geo | CommandMode.WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(pos.Longitude.ToBytes())
+            .WriteArguments(pos.Latitude.ToBytes())
+            .AppendRadiusArgs(
+                radius: radius,
+                withCoord: withCoord,
+                withDist: withDist,
+                withHash: withHash,
+                count: count,
+                any: any,
+                sort: sort,
+                storeKey: storeKey,
+                storeDist: storeDist);
+    }
+
+    internal static CommandPacket GeoRadius_Ro(
+        SharpValue key,
+        GeoCoordinate pos,
+        GeoRadiusArg radius,
+        bool withCoord,
+        bool withDist,
+        bool withHash,
+        long? count,
+        bool any,
+        GeoSort sort)
+    {
+        return new CommandPacket(GeospatialCommands._georadius_ro, CommandMode.Geo | CommandMode.WithRead | CommandMode.WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(pos.Longitude.ToBytes())
+            .WriteArguments(pos.Latitude.ToBytes())
+            .AppendRadiusArgs(
+                radius: radius,
+                withCoord: withCoord,
+                withDist: withDist,
+                withHash: withHash,
+                count: count,
+                any: any,
+                sort: sort,
+                storeKey: null,
+                storeDist: false);
+    }
+
+    internal static CommandPacket GeoRadiusByMember(
+        SharpValue key,
+        SharpValue member,
+        GeoRadiusArg radius,
+        bool withCoord,
+        bool withDist,
+        bool withHash,
+        long? count,
+        bool any,
+        GeoSort sort,
+        SharpValue? storeKey,
+        bool storeDist)
+    {
+        return new CommandPacket(GeospatialCommands._georadiusbymember, CommandMode.Geo | CommandMode.WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(member)
+            .AppendRadiusArgs(
+                radius: radius,
+                withCoord: withCoord,
+                withDist: withDist,
+                withHash: withHash,
+                count: count,
+                any: any,
+                sort: sort,
+                storeKey: storeKey,
+                storeDist: storeDist);
+    }
+
+    internal static CommandPacket GeoRadiusByMember_Ro(
+        SharpValue key,
+        SharpValue member,
+        GeoRadiusArg radius,
+        bool withCoord,
+        bool withDist,
+        bool withHash,
+        long? count,
+        bool any,
+        GeoSort sort)
+    {
+        return new CommandPacket(GeospatialCommands._georadiusbymember_ro, CommandMode.Geo | CommandMode.WithRead | CommandMode.WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(member)
+            .AppendRadiusArgs(
+                radius: radius,
+                withCoord: withCoord,
+                withDist: withDist,
+                withHash: withHash,
+                count: count,
+                any: any,
+                sort: sort,
+                storeKey: null,
+                storeDist: false);
+    }
+
+    private static CommandPacket AppendRadiusArgs(
+        this CommandPacket command,
+        GeoRadiusArg radius,
+        bool withCoord,
+        bool withDist,
+        bool withHash,
+        long? count,
+        bool any,
+        GeoSort sort,
+        SharpValue? storeKey,
+        bool storeDist)
+    {
+        _ = command.WriteArguments(radius.Radius.ToBytes());
+        _ = radius.Unit switch
+        {
+            GeoDistUnit.M => command.WriteArguments("m"),
+            GeoDistUnit.KM => command.WriteArguments("km"),
+            GeoDistUnit.MI => command.WriteArguments("mi"),
+            GeoDistUnit.FT => command.WriteArguments("ft"),
+            _ => throw new NotSupportedException("Please specify the unit of the radius."),
+        };
+
+        _ = command
+            .WriteArguments(withCoord, "WITHCOORD")
+            .WriteArguments(withDist, "WITHDIST")
+            .WriteArguments(withHash, "WITHHASH");
+
+        if (count.HasValue)
+        {
+            _ = command
+                .WriteArguments("COUNT")
+                .WriteArguments(count.Value.ToBytes())
+                .WriteArguments(any, "ANY");
         }
 
-        internal static CommandPacket GeoAdd<TMember>(string key, TMember member, double longitude, double latitude, NxXx nxx, bool ch)
-            where TMember : class
+        switch (sort)
         {
-            return GeospatialCommands.GeoAdd(key, nxx, ch)
-                .WriteArg(longitude)
-                .WriteArg(latitude)
-                .WriteValue(member);
+            case GeoSort.Asc:
+                _ = command.WriteArguments("ASC");
+                break;
+            case GeoSort.Desc:
+                _ = command.WriteArguments("DESC");
+                break;
+            default:
+                break;
         }
 
-        internal static CommandPacket GeoAdd<TMember>(string key, Dictionary<TMember, CoordinateValue> members, NxXx nxx, bool ch)
-            where TMember : class
+        if (storeKey.HasValue)
         {
-            var command = GeospatialCommands.GeoAdd(key, nxx, ch);
-            foreach (var member in members)
+            if (storeDist)
             {
-                command
-                    .WriteArg(member.Value.Longitude)
-                    .WriteArg(member.Value.Latitude)
-                    .WriteValue(member.Key);
+                _ = command
+                .WriteArguments("STORE")
+                .WriteKeys(storeKey.Value);
             }
-            return command;
+            else
+            {
+                _ = command
+                    .WriteArguments("STOREDIST")
+                    .WriteKeys(storeKey.Value);
+            }
+        }
+        return command;
+    }
+
+    internal static CommandPacket GeoSearch(
+        SharpValue key,
+        GeoCoordinate? pos,
+        SharpValue? member,
+        GeoRadiusArg? radius,
+        GeoBoxArg? box,
+        GeoSort sort,
+        long? count,
+        bool any,
+        bool withCoord,
+        bool withDist,
+        bool withHash)
+    {
+        return new CommandPacket(GeospatialCommands._geosearch, CommandMode.Geo | CommandMode.WithRead | CommandMode.WithClientCaching)
+            .WriteKeys(key)
+            .AppendGeoSearchArgs(
+                pos: pos,
+                member: member,
+                radius: radius,
+                box: box,
+                sort: sort,
+                count: count,
+                any: any,
+                withCoord: withCoord,
+                withDist: withDist,
+                withHash: withHash,
+                storedist: false);
+    }
+
+    internal static CommandPacket GeoSearchStore(
+        SharpValue destination,
+        SharpValue source,
+        GeoCoordinate? pos,
+        SharpValue? member,
+        GeoRadiusArg? radius,
+        GeoBoxArg? box,
+        GeoSort sort,
+        long? count,
+        bool any,
+        bool storedist)
+    {
+        return new CommandPacket(GeospatialCommands._geosearchstore, CommandMode.Geo | CommandMode.WithWrite)
+            .WriteKeys(destination)
+            .WriteKeys(source)
+            .AppendGeoSearchArgs(
+                pos: pos,
+                member: member,
+                radius: radius,
+                box: box,
+                sort: sort,
+                count: count,
+                any: any,
+                withCoord: false,
+                withDist: false,
+                withHash: false,
+                storedist: storedist);
+    }
+
+    private static CommandPacket AppendGeoSearchArgs(
+        this CommandPacket command,
+        GeoCoordinate? pos,
+        SharpValue? member,
+        GeoRadiusArg? radius,
+        GeoBoxArg? box,
+        GeoSort sort,
+        long? count,
+        bool any,
+        bool withCoord,
+        bool withDist,
+        bool withHash,
+        bool storedist)
+    {
+        if (member.HasValue)
+        {
+            _ = command
+                .WriteArguments("FROMMEMBER")
+                .WriteArguments(member.Value);
         }
 
-        internal static CommandPacket GeoDist<TMember>(string key, TMember member1, TMember member2, DistanceUnit unit)
-            where TMember : class
+        if (pos.HasValue)
         {
-            return new CommandPacket("GEODIST", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteValue(member1)
-                .WriteValue(member2)
-                .WriteArg(unit is DistanceUnit.km, "km")
-                .WriteArg(unit is DistanceUnit.ft, "ft")
-                .WriteArg(unit is DistanceUnit.mi, "mi");
+            _ = command
+                .WriteArguments("FROMLONLAT")
+                .WriteArguments(pos.Value.Longitude.ToBytes())
+                .WriteArguments(pos.Value.Latitude.ToBytes());
         }
 
-        internal static CommandPacket GeoHash<TMember>(string key, params TMember[] members)
-            where TMember : class
+        if (radius.HasValue)
         {
-            if (members is null || members.Length == 0) throw new RedisException("Please ensure at least one member");
-            return new CommandPacket("GEOHASH", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteValues(members);
+            _ = command
+               .WriteArguments("BYRADIUS")
+               .WriteArguments(radius.Value.Radius.ToBytes());
+            _ = radius.Value.Unit switch
+            {
+                GeoDistUnit.M => command.WriteArguments("m"),
+                GeoDistUnit.KM => command.WriteArguments("km"),
+                GeoDistUnit.MI => command.WriteArguments("mi"),
+                GeoDistUnit.FT => command.WriteArguments("ft"),
+                _ => throw new NotSupportedException("Please specify the unit of the radius."),
+            };
         }
 
-        internal static CommandPacket GeoPos<TMember>(string key, params TMember[] members)
-            where TMember : class
+        if (box.HasValue)
         {
-            if (members is null || members.Length == 0) throw new RedisException("Please ensure at least one member");
-            return new CommandPacket("GEOPOS", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteValues(members);
+            _ = command
+               .WriteArguments("BYBOX")
+               .WriteArguments(box.Value.Width.ToBytes())
+               .WriteArguments(box.Value.Height.ToBytes());
+            _ = box.Value.Unit switch
+            {
+                GeoDistUnit.M => command.WriteArguments("m"),
+                GeoDistUnit.KM => command.WriteArguments("km"),
+                GeoDistUnit.MI => command.WriteArguments("mi"),
+                GeoDistUnit.FT => command.WriteArguments("ft"),
+                _ => throw new NotSupportedException("Please specify the unit of the radius."),
+            };
         }
 
-        internal static CommandPacket GeoRadius<TRadius>(
-            string key,
-            double longitude,
-            double latitude,
-            TRadius radius,
-            DistanceUnit unit,
-            bool withCoord = false,
-            bool withDist = false,
-            bool withHash = false,
-            ulong count = 0,
-            bool any = false,
-            OrderType order = OrderType.Default,
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-            string? storeKey = null,
-            string? storeDistKey = null
-#else
-            string storeKey = null,
-            string storeDistKey = null
-#endif
-            )
-#if NET7_0_OR_GREATER
-            where TRadius : struct, System.Numerics.INumber<TRadius>
-#else
-            where TRadius : struct, System.IEquatable<TRadius>
-#endif
+        switch (sort)
         {
-            if (storeKey != null && storeDistKey != null) throw new RedisException("[STORE] and [STOREDIST] cannot be set at the same time");
-            return new CommandPacket("GEORADIUS", CommandMode.Write)
-                .WriteKey(key)
-                .WriteArg(longitude)
-                .WriteArg(latitude)
-                .WriteArg(radius)
-                .WriteArg(unit is DistanceUnit.m, "m")
-                .WriteArg(unit is DistanceUnit.km, "km")
-                .WriteArg(unit is DistanceUnit.ft, "ft")
-                .WriteArg(unit is DistanceUnit.mi, "mi")
-                .WriteArg(withCoord, "WITHCOORD")
-                .WriteArg(withDist, "WITHDIST")
-                .WriteArg(withHash, "WITHHASH")
-                .WriteArg(count > 0, "COUNT", count)
-                .WriteArg(any && count > 0, "ANY")
-                .WriteArg(order == OrderType.Asc, "ASC")
-                .WriteArg(order == OrderType.Desc, "DESC")
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteArgKey(storeKey != null, "STORE", storeKey!)
-                .WriteArgKey(storeDistKey != null, "STOREDIST", storeDistKey!)
-#else
-                .WriteArgKey(storeKey != null, "STORE", storeKey)
-                .WriteArgKey(storeDistKey != null, "STOREDIST", storeDistKey)
-#endif
-                ;
+            case GeoSort.Asc:
+                _ = command.WriteArguments("ASC");
+                break;
+            case GeoSort.Desc:
+                _ = command.WriteArguments("DESC");
+                break;
+            default:
+                break;
         }
 
-        internal static CommandPacket GeoRadius_Ro<TRadius>(
-            string key,
-            double longitude,
-            double latitude,
-            TRadius radius,
-            DistanceUnit unit,
-            bool withCoord = false,
-            bool withDist = false,
-            bool withHash = false,
-            ulong count = 0,
-            bool any = false,
-            OrderType order = OrderType.Default
-            )
-#if NET7_0_OR_GREATER
-            where TRadius : struct, System.Numerics.INumber<TRadius>
-#else
-            where TRadius : struct, System.IEquatable<TRadius>
-#endif
+        if (count.HasValue)
         {
-            return new CommandPacket("GEORADIUS_RO", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteArg(longitude)
-                .WriteArg(latitude)
-                .WriteArg(radius)
-                .WriteArg(unit is DistanceUnit.m, "m")
-                .WriteArg(unit is DistanceUnit.km, "km")
-                .WriteArg(unit is DistanceUnit.ft, "ft")
-                .WriteArg(unit is DistanceUnit.mi, "mi")
-                .WriteArg(withCoord, "WITHCOORD")
-                .WriteArg(withDist, "WITHDIST")
-                .WriteArg(withHash, "WITHHASH")
-                .WriteArg(count > 0, "COUNT", count)
-                .WriteArg(any && count > 0, "ANY")
-                .WriteArg(order == OrderType.Asc, "ASC")
-                .WriteArg(order == OrderType.Desc, "DESC");
+            _ = command
+                .WriteArguments("COUNT")
+                .WriteArguments(count.Value.ToBytes())
+                .WriteArguments(any, "ANY");
         }
 
-        internal static CommandPacket GeoRadiusByMember<TRadius, TMember>(
-            string key,
-            TMember member,
-            TRadius radius,
-            DistanceUnit unit,
-            bool withCoord = false,
-            bool withDist = false,
-            bool withHash = false,
-            ulong count = 0,
-            bool any = false,
-            OrderType order = OrderType.Default,
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-            string? storeKey = null,
-            string? storeDistKey = null
-#else
-            string storeKey = null,
-            string storeDistKey = null
-#endif
-            )
-#if NET7_0_OR_GREATER
-            where TRadius : struct, System.Numerics.INumber<TRadius>
-#else
-            where TRadius : struct, System.IEquatable<TRadius>
-#endif
-            where TMember : class
-        {
-            if (storeKey != null && storeDistKey != null) throw new RedisException("[STORE] and [STOREDIST] cannot be set at the same time");
-            return new CommandPacket("GEORADIUSBYMEMBER", CommandMode.Write)
-                .WriteKey(key)
-                .WriteValue(member)
-                .WriteArg(radius)
-                .WriteArg(unit is DistanceUnit.m, "m")
-                .WriteArg(unit is DistanceUnit.km, "km")
-                .WriteArg(unit is DistanceUnit.ft, "ft")
-                .WriteArg(unit is DistanceUnit.mi, "mi")
-                .WriteArg(withCoord, "WITHCOORD")
-                .WriteArg(withDist, "WITHDIST")
-                .WriteArg(withHash, "WITHHASH")
-                .WriteArg(count > 0, "COUNT", count)
-                .WriteArg(any && count > 0, "ANY")
-                .WriteArg(order is OrderType.Asc, "ASC")
-                .WriteArg(order is OrderType.Desc, "DESC")
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteArgKey(storeKey != null, "STORE", storeKey!)
-                .WriteArgKey(storeDistKey != null, "STOREDIST", storeDistKey!)
-#else
-                .WriteArgKey(storeKey != null, "STORE", storeKey)
-                .WriteArgKey(storeDistKey != null, "STOREDIST", storeDistKey)
-#endif
-                ;
-        }
-
-        internal static CommandPacket GeoRadiusByMember_Ro<TRadius, TMember>(
-            string key,
-            TMember member,
-            TRadius radius,
-            DistanceUnit unit,
-            bool withCoord = false,
-            bool withDist = false,
-            bool withHash = false,
-            ulong count = 0,
-            bool any = false,
-            OrderType order = OrderType.Default)
-#if NET7_0_OR_GREATER
-            where TRadius : struct, System.Numerics.INumber<TRadius>
-#else
-            where TRadius : struct, System.IEquatable<TRadius>
-#endif
-            where TMember : class
-        {
-            return new CommandPacket("GEORADIUSBYMEMBER_RO", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteValue(member)
-                .WriteArg(radius)
-                .WriteArg(unit is DistanceUnit.m, "m")
-                .WriteArg(unit is DistanceUnit.km, "km")
-                .WriteArg(unit is DistanceUnit.ft, "ft")
-                .WriteArg(unit is DistanceUnit.mi, "mi")
-                .WriteArg(withCoord, "WITHCOORD")
-                .WriteArg(withDist, "WITHDIST")
-                .WriteArg(withHash, "WITHHASH")
-                .WriteArg(count > 0, "COUNT", count)
-                .WriteArg(any && count > 0, "ANY")
-                .WriteArg(order is OrderType.Asc, "ASC")
-                .WriteArg(order is OrderType.Desc, "DESC");
-        }
-
-        internal static CommandPacket GeoSearch<TCoordinate, TMember>(
-            string key,
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-            TMember? member,
-#else
-            TMember member,
-#endif
-            double? longitude,
-            double? latitude,
-            TCoordinate? radius,
-            TCoordinate? width,
-            TCoordinate? height,
-            DistanceUnit unit,
-            OrderType order = OrderType.Default,
-            ulong count = 0,
-            bool any = false,
-            bool withCoord = false,
-            bool withDist = false,
-            bool withHash = false)
-#if NET7_0_OR_GREATER
-            where TCoordinate : struct, System.Numerics.INumber<TCoordinate>
-#else
-            where TCoordinate : struct, System.IEquatable<TCoordinate>
-#endif
-            where TMember : class
-        {
-            return new CommandPacket("GEOSEARCH", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteValue(member != null, "FROMMEMBER", member!)
-#else
-                .WriteValue(member != null, "FROMMEMBER", member)
-#endif
-                .WriteArg(longitude.HasValue && latitude.HasValue, "FROMLONLAT", longitude ?? default, latitude ?? default)
-                .WriteArg(radius.HasValue, "BYRADIUS", radius ?? default)
-                .WriteArg(width.HasValue && height.HasValue, "BYBOX", width ?? default, height ?? default)
-                .WriteArg(unit is DistanceUnit.m, "m")
-                .WriteArg(unit is DistanceUnit.km, "km")
-                .WriteArg(unit is DistanceUnit.ft, "ft")
-                .WriteArg(unit is DistanceUnit.mi, "mi")
-                .WriteArg(order is OrderType.Asc, "ASC")
-                .WriteArg(order is OrderType.Desc, "DESC")
-                .WriteArg(count > 0, "COUNT", count)
-                .WriteArg(any && count > 0, "ANY")
-                .WriteArg(withCoord, "WITHCOORD")
-                .WriteArg(withDist, "WITHDIST")
-                .WriteArg(withHash, "WITHHASH");
-        }
-
-        internal static CommandPacket GeoSearchStore<TCoordinate, TMember>(
-            string destination,
-            string source,
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-            TMember? member,
-#else
-            TMember member,
-#endif
-            double? longitude,
-            double? latitude,
-            TCoordinate? radius,
-            TCoordinate? width,
-            TCoordinate? height,
-            DistanceUnit unit,
-            OrderType order = OrderType.Default,
-            ulong count = 0,
-            bool any = false,
-            bool storeDist = false)
-#if NET7_0_OR_GREATER
-            where TCoordinate : struct, System.Numerics.INumber<TCoordinate>
-#else
-            where TCoordinate : struct, System.IEquatable<TCoordinate>
-#endif
-            where TMember : class
-        {
-            return new CommandPacket("GEOSEARCHSTORE", CommandMode.Write)
-                .WriteKey(destination)
-                .WriteKey(source)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteValue(member != null, "FROMMEMBER", member!)
-#else
-                .WriteValue(member != null, "FROMMEMBER", member)
-#endif
-                .WriteArg(longitude.HasValue && latitude.HasValue, "FROMLONLAT", longitude ?? default, latitude ?? default)
-                .WriteArg(radius.HasValue, "BYRADIUS", radius ?? default)
-                .WriteArg(width.HasValue && height.HasValue, "BYBOX", width ?? default, height ?? default)
-                .WriteArg(unit is DistanceUnit.m, "m")
-                .WriteArg(unit is DistanceUnit.km, "km")
-                .WriteArg(unit is DistanceUnit.ft, "ft")
-                .WriteArg(unit is DistanceUnit.mi, "mi")
-                .WriteArg(order is OrderType.Asc, "ASC")
-                .WriteArg(order is OrderType.Desc, "DESC")
-                .WriteArg(count > 0, "COUNT", count)
-                .WriteArg(any && count > 0, "ANY")
-                .WriteArg(storeDist, "STOREDIST");
-        }
+        return command
+            .WriteArguments(withCoord, "WITHCOORD")
+            .WriteArguments(withDist, "WITHDIST")
+            .WriteArguments(withHash, "WITHHASH")
+            .WriteArguments(storedist, "STOREDIST");
     }
 }

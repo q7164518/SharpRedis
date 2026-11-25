@@ -1,475 +1,517 @@
-﻿#if !LOW_NET
-using System.Threading;
-#else
-#pragma warning disable IDE0130
-#endif
+﻿using SharpRedis.Commands;
 using SharpRedis.Provider.Standard;
-using SharpRedis.Commands;
+using SharpRedis.Provider.Types;
+using System;
+using System.Collections.Generic;
+using System.Threading;
 
-namespace SharpRedis
+namespace SharpRedis;
+
+/// <summary>
+/// Redis lua script
+/// <para>Lua脚本操作类型</para>
+/// </summary>
+public sealed partial class RedisScript : RedisTypeBase
 {
+    #region enums
     /// <summary>
-    /// Redis LUA script action class
-    /// <para>Redis LUA脚本操作类</para>
+    /// Enumeration of Lua script debugging modes
+    /// <para>Lua脚本调试模式枚举</para>
     /// </summary>
-    public sealed partial class RedisScript : BaseType
+    public enum DebugMode : byte
     {
-        internal RedisScript(BaseCall call) : base(call)
-        {
-        }
-
-        #region Script
         /// <summary>
-        /// Invoke the execution of a server-side Lua script
-        /// <para>Available since: 2.6.0</para>
-        /// <para>执行Lua脚本</para>
-        /// <para>支持此命令的Redis版本, 2.6.0+</para>
+        /// Enable non-blocking asynchronous debugging of Lua scripts (changes are discarded).
+        /// <para>启用 Lua 脚本的非阻塞异步调试（更改将被丢弃）。</para>
         /// </summary>
-        /// <param name="script">Lua script code
-        /// <para>Lua脚本代码</para>
-        /// </param>
-        /// <param name="keys">Keys</param>
-        /// <param name="args">args</param>
-        /// <param name="dataType">The script returns a value parsing type, which defaults to string
-        /// <para>脚本返回值解析类型, 默认为string</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public object? Eval(string script, string[]? keys, string[]? args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
+        Yes = 0,
+
+        /// <summary>
+        /// Enable blocking synchronous debugging of Lua scripts (saves changes to data).
+        /// <para>启用 Lua 脚本的同步调试阻断功能（保存数据更改）。</para>
+        /// </summary>
+        Sync,
+
+        /// <summary>
+        /// Disable Lua script debug mode. Subsequent scripts run normally, without LDB.
+        /// <para>禁用 Lua 脚本调试模式。后续脚本将正常运行，无需 LDB。</para>
+        /// </summary>
+        No,
+    }
+    #endregion
+
+    internal RedisScript(BaseRedis redis) : base(redis) { }
+
+    /// <summary>
+    /// Executes a server-side Lua script with the embedded Redis Lua 5.1 interpreter.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>执行Lua脚本</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="script">The Lua script to evaluate.
+    /// <para>要执行的Lua脚本代码</para>
+    /// </param>
+    /// <param name="keys">The key names the script accesses, provided to it via the Lua global KEYS runtime variable.
+    /// <para>提供给Lua脚本的Key, 在脚本里面使用KEYS访问</para>
+    /// </param>
+    /// <param name="argv">Additional arguments provided to the script via the Lua ARGV variable.
+    /// <para>提供给Lua脚本的其它参数, 在脚本里面通过ARGV访问</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The return value depends on the script that was executed.
+    /// <para>脚本返回的值</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/Eval">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/Eval">命令文档</see></para>
+    /// </remarks>
+    public RedisResult Eval(string script, ReadOnlySpan<string> keys = default, SharpValueSpan argv = default, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.Eval(script, keys, argv) | flags, cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes a server-side Lua script with the embedded Redis Lua 5.1 interpreter.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>执行Lua脚本</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="script">The Lua script to evaluate.
+    /// <para>要执行的Lua脚本代码</para>
+    /// </param>
+    /// <param name="keys">The key names the script accesses, provided to it via the Lua global KEYS runtime variable.
+    /// <para>提供给Lua脚本的Key, 在脚本里面使用KEYS访问</para>
+    /// </param>
+    /// <param name="argv">Additional arguments provided to the script via the Lua ARGV variable.
+    /// <para>提供给Lua脚本的其它参数, 在脚本里面通过ARGV访问</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The return value depends on the script that was executed.
+    /// <para>脚本返回的值</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/Eval">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/Eval">命令文档</see></para>
+    /// </remarks>
+    public RedisResult Eval(
+        string script,
+#if MODERN_NET
+        ICollection<string>? keys,
 #else
-        public object Eval(string script, string[] keys, string[] args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
+        ICollection<string> keys,
 #endif
-        {
-            return base._call.Call(ScriptCommands.Eval(script, keys, args).SetResultDataType(dataType), ResultType.Object, cancellationToken);
-        }
+        SharpValueSpan argv = default, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.Eval(script, keys, argv) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Evaluate a script from the server's cache by its SHA1 digest.
-        /// <para>Available since: 2.6.0</para>
-        /// <para>根据缓存脚本的SHA1值执行脚本</para>
-        /// <para>支持此命令的Redis版本, 2.6.0+</para>
-        /// </summary>
-        /// <param name="sha1">The SHA1 digest of the script added into the script cache.
-        /// <para>缓存的脚本SHA1</para>
-        /// </param>
-        /// <param name="keys">Keys</param>
-        /// <param name="args">args</param>
-        /// <param name="dataType">The script returns a value parsing type, which defaults to string
-        /// <para>脚本返回值解析类型, 默认为string</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public object? EvalSHA(string sha1, string[]? keys, string[]? args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Runs a read-only Lua script. Unlike <b>EVAL</b>, this command can’t run commands that modify data.
+    /// <para>Available since: 7.0.0</para>
+    /// <para>执行只读的Lua脚本, 与 <b>EVAL</b> 不同的是: 此命令不能执行修改数据的脚本</para>
+    /// <para>支持此命令的Redis版本, 7.0.0+</para>
+    /// </summary>
+    /// <param name="script">The Lua script to evaluate.
+    /// <para>要执行的Lua脚本代码</para></param>
+    /// <param name="keys">The key names the script accesses, provided to it via the Lua global KEYS runtime variable.
+    /// <para>提供给Lua脚本的Key, 在脚本里面使用KEYS访问</para>
+    /// </param>
+    /// <param name="argv">Additional arguments provided to the script via the Lua ARGV variable.
+    /// <para>提供给Lua脚本的其它参数, 在脚本里面通过ARGV访问</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The return value depends on the script that was executed.
+    /// <para>脚本返回的值</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/Eval_Ro">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/Eval_Ro">命令文档</see></para>
+    /// </remarks>
+    public RedisResult Eval_Ro(string script, ReadOnlySpan<string> keys = default, SharpValueSpan argv = default, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.Eval_Ro(script, keys, argv) | flags, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs a read-only Lua script. Unlike <b>EVAL</b>, this command can’t run commands that modify data.
+    /// <para>Available since: 7.0.0</para>
+    /// <para>执行只读的Lua脚本, 与 <b>EVAL</b> 不同的是: 此命令不能执行修改数据的脚本</para>
+    /// <para>支持此命令的Redis版本, 7.0.0+</para>
+    /// </summary>
+    /// <param name="script">The Lua script to evaluate.
+    /// <para>要执行的Lua脚本代码</para></param>
+    /// <param name="keys">The key names the script accesses, provided to it via the Lua global KEYS runtime variable.
+    /// <para>提供给Lua脚本的Key, 在脚本里面使用KEYS访问</para>
+    /// </param>
+    /// <param name="argv">Additional arguments provided to the script via the Lua ARGV variable.
+    /// <para>提供给Lua脚本的其它参数, 在脚本里面通过ARGV访问</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The return value depends on the script that was executed.
+    /// <para>脚本返回的值</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/Eval_Ro">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/Eval_Ro">命令文档</see></para>
+    /// </remarks>
+    public RedisResult Eval_Ro(
+        string script,
+#if MODERN_NET
+        ICollection<string>? keys,
 #else
-        public object EvalSHA(string sha1, string[] keys, string[] args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
+        ICollection<string> keys,
 #endif
-        {
-            return base._call.Call(ScriptCommands.EvalSHA(sha1, keys, args).SetResultDataType(dataType), ResultType.Object, cancellationToken);
-        }
+        SharpValueSpan argv = default, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.Eval_Ro(script, keys, argv) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Flush the Lua scripts cache.
-        /// <para>Available since: 2.6.0 | 6.2.0</para>
-        /// <para>清除所有Lua缓存</para>
-        /// <para>支持此命令的Redis版本, 2.6.0+ | 6.2.0+</para>
-        /// </summary>
-        /// <param name="mode">6.2.0. Flushing mode modifier
-        /// <para>刷新模式</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool ScriptFlush(FlushingMode mode = FlushingMode.None, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(ScriptCommands.ScriptFlush(mode), "OK", cancellationToken);
-        }
+    /// <summary>
+    /// Load a script into the scripts cache, without executing it. After the specified command is loaded into the script cache it will be callable using <b>EVALSHA</b> with the correct SHA1 digest of the script, exactly like after the first successful invocation of <b>EVAL</b>.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>将Lua脚本加载并缓存, 获得脚本的SHA1值. 此操作不会执行脚本, 后续需要使用 <b>EVALSHA</b> 命令搭配正确的脚本SHA1值执行脚本</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="script">The Lua script to load into the script cache.
+    /// <para>要加载并缓存的Lua脚本代码</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The SHA1 digest of the script added into the script cache.
+    /// <para>加载到缓存中的Lua脚本SHA1值</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/script-load">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/script-load">命令文档</see></para>
+    /// </remarks>
+    public string ScriptLoad(string script, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.ScriptLoad(script) | flags, cancellationToken)!;
+    }
 
-        /// <summary>
-        /// Load a script into the scripts cache, without executing it. After the specified command is loaded into the script cache it will be callable using EVALSHA with the correct SHA1 digest of the script, exactly like after the first successful invocation of EVAL.
-        /// <para>Available since: 2.6.0</para>
-        /// <para>加载一段LUA脚本到Redis脚本缓存中, 返回脚本的SHA1值, 后面可以用SHA1执行该脚本</para>
-        /// <para>支持此命令的Redis版本, 2.6.0+</para>
-        /// </summary>
-        /// <param name="script">Lua script code
-        /// <para>Lua脚本代码</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>The SHA1 digest of the script added into the script cache.
-        /// <para>
-        /// 缓存之后的SHA1值
-        /// </para>
-        /// </returns>
-        public string ScriptLoad(string script, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallString(ScriptCommands.ScriptLoad(script), cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    /// <summary>
+    /// Evaluate a script from the server's cache by its SHA1 digest.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>通过Lua脚本的SHA1值运行脚本</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="sha1">The SHA1 digest of a script previously cached with <b>SCRIPT LOAD</b> or EVAL.
+    /// <para>使用 <b>SCRIPT LOAD</b> 命令加载缓存Lua脚本返回的SHA1值</para>
+    /// </param>
+    /// <param name="keys">The key names the script accesses, provided to it via the Lua global KEYS runtime variable.
+    /// <para>提供给Lua脚本的Key, 在脚本里面使用KEYS访问</para>
+    /// </param>
+    /// <param name="argv">Additional arguments provided to the script via the Lua ARGV variable.
+    /// <para>提供给Lua脚本的其它参数, 在脚本里面通过ARGV访问</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The return value depends on the script that was executed.
+    /// <para>脚本返回的值</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/EvalSHA">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/EvalSHA">命令文档</see></para>
+    /// </remarks>
+    public RedisResult EvalSHA(string sha1, ReadOnlySpan<string> keys = default, SharpValueSpan argv = default, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.EvalSHA(sha1, keys, argv) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Kills the currently executing EVAL script, assuming no write operation was yet performed by the script
-        /// <para>Available since: 2.6.0</para>
-        /// <para>终止当前正在运行的脚本, 假设该脚本当前还没执行任何写入操作</para>
-        /// <para>支持此命令的Redis版本, 2.6.0+</para>
-        /// </summary>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para></param>
-        /// <returns></returns>
-        /// <remarks>If the script has already performed write operations, it can not be killed in this way because it would violate Lua's script atomicity contract. In such a case, only SHUTDOWN NOSAVE can kill the script, killing the Redis process in a hard way and preventing it from persisting with half-written information
-        /// <para>如果脚本已经执行了写操作，则不能通过这种方式杀死它，因为这会违反Lua的脚本原子性契约。在这种情况下，只有SHUTDOWN NOSAVE可以杀掉脚本，硬杀掉Redis进程，防止其持久化写了一半的信息</para>
-        /// </remarks>
-        public bool ScriptKill(CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(ScriptCommands.ScriptKill(), "OK", cancellationToken);
-        }
-
-        /// <summary>
-        /// Returns information about the existence of the scripts in the script cache.
-        /// <para>Available since: 2.6.0</para>
-        /// <para>根据SHA1判断LUA是否已缓存了该脚本</para>
-        /// <para>支持此命令的Redis版本, 2.6.0+</para>
-        /// </summary>
-        /// <param name="sha1">SHA1
-        /// <para>SHA1值</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool ScriptExists(string sha1, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(ScriptCommands.ScriptExists(sha1), "1", cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
-
-        /// <summary>
-        /// Returns information about the existence of the scripts in the script cache.
-        /// <para>Available since: 2.6.0</para>
-        /// <para>根据SHA1判断LUA是否已缓存了该脚本</para>
-        /// <para>支持此命令的Redis版本, 2.6.0+</para>
-        /// </summary>
-        /// <param name="sha1Array">SHA1 array
-        /// <para>SHA1值</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool[] ScriptExists(string[] sha1Array, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallConditionArray(ScriptCommands.ScriptExists(sha1Array), "1", cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
-
-        /// <summary>
-        /// Set the debug mode for subsequent scripts executed with EVAL
-        /// <para>Available since: 3.2.0</para>
-        /// <para>为使用EVAL执行的后续脚本设置调试模式</para>
-        /// <para>支持此命令的Redis版本, 3.2.0+</para>
-        /// </summary>
-        /// <param name="mode">mode</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool ScriptDebug(ScriptDebugMode mode, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(ScriptCommands.ScriptDebug(mode), "OK", cancellationToken);
-        }
-
-        /// <summary>
-        /// This is a read-only variant of the EVAL command that cannot execute commands that modify data
-        /// <para>Available since: 7.0.0</para>
-        /// <para>执行只读的Lua脚本. 不能执行写入, 否则异常</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="script">Lua script code
-        /// <para>Lua脚本代码</para>
-        /// </param>
-        /// <param name="keys">Keys</param>
-        /// <param name="args">args</param>
-        /// <param name="dataType">The script returns a value parsing type, which defaults to string
-        /// <para>脚本返回值解析类型, 默认为string</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public object? Eval_Ro(string script, string[]? keys, string[]? args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Evaluate a script from the server's cache by its SHA1 digest.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>通过Lua脚本的SHA1值运行脚本</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="sha1">The SHA1 digest of a script previously cached with <b>SCRIPT LOAD</b> or EVAL.
+    /// <para>使用 <b>SCRIPT LOAD</b> 命令加载缓存Lua脚本返回的SHA1值</para>
+    /// </param>
+    /// <param name="keys">The key names the script accesses, provided to it via the Lua global KEYS runtime variable.
+    /// <para>提供给Lua脚本的Key, 在脚本里面使用KEYS访问</para>
+    /// </param>
+    /// <param name="argv">Additional arguments provided to the script via the Lua ARGV variable.
+    /// <para>提供给Lua脚本的其它参数, 在脚本里面通过ARGV访问</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The return value depends on the script that was executed.
+    /// <para>脚本返回的值</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/EvalSHA">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/EvalSHA">命令文档</see></para>
+    /// </remarks>
+    public RedisResult EvalSHA(
+        string sha1,
+#if MODERN_NET
+        ICollection<string>? keys,
 #else
-        public object Eval_Ro(string script, string[] keys, string[] args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
+        ICollection<string> keys,
 #endif
-        {
-            return base._call.Call(ScriptCommands.Eval_Ro(script, keys, args).SetResultDataType(dataType), ResultType.Object, cancellationToken);
-        }
+        SharpValueSpan argv = default, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.EvalSHA(sha1, keys, argv) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// This is a read-only variant of the EVALSHA command that cannot execute commands that modify data
-        /// <para>Available since: 7.0.0</para>
-        /// <para>根据缓存的只读脚本SHA1值执行脚本</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="sha1">The SHA1 digest of the script added into the script cache.
-        /// <para>缓存的只读脚本SHA1</para>
-        /// </param>
-        /// <param name="keys">Keys</param>
-        /// <param name="args">args</param>
-        /// <param name="dataType">The script returns a value parsing type, which defaults to string
-        /// <para>脚本返回值解析类型, 默认为string</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public object? EvalSHA_Ro(string sha1, string[]? keys, string[]? args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// This is a read-only variant of the <b>EVALSHA</b> command that cannot execute commands that modify data.
+    /// <para>Available since: 7.0.0</para>
+    /// <para><b>EVALSHA</b> 命令的只读版. 此命令不能执行修改数据的脚本</para>
+    /// <para>支持此命令的Redis版本, 7.0.0+</para>
+    /// </summary>
+    /// <param name="sha1">The SHA1 digest of a script previously cached with <b>SCRIPT LOAD</b> or EVAL.
+    /// <para>使用 <b>SCRIPT LOAD</b> 命令加载缓存Lua脚本返回的SHA1值</para>
+    /// </param>
+    /// <param name="keys">The key names the script accesses, provided to it via the Lua global KEYS runtime variable.
+    /// <para>提供给Lua脚本的Key, 在脚本里面使用KEYS访问</para>
+    /// </param>
+    /// <param name="argv">Additional arguments provided to the script via the Lua ARGV variable.
+    /// <para>提供给Lua脚本的其它参数, 在脚本里面通过ARGV访问</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The return value depends on the script that was executed.
+    /// <para>脚本返回的值</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/EvalSHA_Ro">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/EvalSHA_Ro">命令文档</see></para>
+    /// </remarks>
+    public RedisResult EvalSHA_Ro(string sha1, ReadOnlySpan<string> keys = default, SharpValueSpan argv = default, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.EvalSHA_Ro(sha1, keys, argv) | flags, cancellationToken);
+    }
+
+    /// <summary>
+    /// This is a read-only variant of the <b>EVALSHA</b> command that cannot execute commands that modify data.
+    /// <para>Available since: 7.0.0</para>
+    /// <para><b>EVALSHA</b> 命令的只读版. 此命令不能执行修改数据的脚本</para>
+    /// <para>支持此命令的Redis版本, 7.0.0+</para>
+    /// </summary>
+    /// <param name="sha1">The SHA1 digest of a script previously cached with <b>SCRIPT LOAD</b> or EVAL.
+    /// <para>使用 <b>SCRIPT LOAD</b> 命令加载缓存Lua脚本返回的SHA1值</para>
+    /// </param>
+    /// <param name="keys">The key names the script accesses, provided to it via the Lua global KEYS runtime variable.
+    /// <para>提供给Lua脚本的Key, 在脚本里面使用KEYS访问</para>
+    /// </param>
+    /// <param name="argv">Additional arguments provided to the script via the Lua ARGV variable.
+    /// <para>提供给Lua脚本的其它参数, 在脚本里面通过ARGV访问</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The return value depends on the script that was executed.
+    /// <para>脚本返回的值</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/EvalSHA_Ro">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/EvalSHA_Ro">命令文档</see></para>
+    /// </remarks>
+    public RedisResult EvalSHA_Ro(
+        string sha1,
+#if MODERN_NET
+        ICollection<string>? keys,
 #else
-        public object EvalSHA_Ro(string sha1, string[] keys, string[] args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
+        ICollection<string> keys,
 #endif
-        {
-            return base._call.Call(ScriptCommands.EvalSHA_Ro(sha1, keys, args).SetResultDataType(dataType), ResultType.Object, cancellationToken);
-        }
-        #endregion
+        SharpValueSpan argv = default, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.EvalSHA_Ro(sha1, keys, argv) | flags, cancellationToken);
+    }
 
-        #region Function
-        /// <summary>
-        /// Load a library to Redis
-        /// <para>Available since: 7.0.0</para>
-        /// <para>加载一个函数库到Redis</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="functionCode">function lua code
-        /// <para>函数库Lua代码</para>
-        /// </param>
-        /// <param name="replace">Whether to overwrite the library if it already exists. Default no override
-        /// <para>如果库已经存在, 是否覆盖. 默认不覆盖</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>The library name that was loaded
-        /// <para>加载成功的函数库名称</para>
-        /// </returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string? FunctionLoad(string functionCode, bool replace = false, CancellationToken cancellationToken = default)
-#else
-        public string FunctionLoad(string functionCode, bool replace = false, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallString(ScriptCommands.FunctionLoad(functionCode, replace), cancellationToken);
-        }
+    /// <summary>
+    /// Set the debug mode for subsequent scripts executed with EVAL.
+    /// <para>Available since: 3.2.0</para>
+    /// <para>为后续使用 <b>EVAL</b> 执行的Lua脚本设置调试模式</para>
+    /// <para>支持此命令的Redis版本, 3.2.0+</para>
+    /// </summary>
+    /// <param name="mode">Set the debugging mode
+    /// <para>调试模式</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/script-debug">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/script-debug">命令文档</see></para>
+    /// </remarks>
+    [Obsolete("Avoid debugging Lua scripts using your production Redis server. Use a development server instead.")]
+    public bool ScriptDebug(DebugMode mode, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.ScriptDebug(mode) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Delete a library and all its functions. If the library doesn't exist, the server returns an error
-        /// <para>Available since: 7.0.0</para>
-        /// <para>删除一个函数库, 如果函数库不存在将引发异常</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="libraryName">The name of the library to delete
-        /// <para>要删除的函数库名称</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool FunctionDelete(string libraryName, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(ScriptCommands.FunctionDelete(libraryName), "OK", cancellationToken);
-        }
+    /// <summary>
+    /// Returns information about the existence of the scripts in the script cache.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>根据指定的Lua脚本SHA1值, 返回是否加载缓存了该Lua脚本</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="sha1">One SHA1 digests to look up in the script cache.
+    /// <para>要判断的Lua脚本SHA1值</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>Returns true if present, otherwise returns false.
+    /// <para>存在返回true, 否则返回false</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/script-exists">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/script-exists">命令文档</see></para>
+    /// </remarks>
+    public bool ScriptExists(string sha1, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.ScriptExists(sha1) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Invoke a function
-        /// <para>Available since: 7.0.0</para>
-        /// <para>执行Lua函数</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="function">function name
-        /// <para>要执行的函数名称</para>
-        /// </param>
-        /// <param name="keys">Keys</param>
-        /// <param name="args">args</param>
-        /// <param name="dataType">The function returns a value parsing type, which defaults to string
-        /// <para>函数返回值解析类型, 默认为string</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public object? FCall(string function, string[]? keys, string[]? args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
-#else
-        public object FCall(string function, string[] keys, string[] args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.Call(ScriptCommands.FCall(function, keys, args).SetResultDataType(dataType), ResultType.Object, cancellationToken);
-        }
+    /// <summary>
+    /// Returns information about the existence of the scripts in the script cache.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>根据指定的Lua脚本SHA1值, 返回是否加载缓存了该Lua脚本</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="sha1">One or more SHA1 digests to look up in the script cache.
+    /// <para>要判断的Lua脚本SHA1值, 支持多个</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>Returns true if present, otherwise returns false.
+    /// <para>存在返回true, 否则返回false</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/script-exists">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/script-exists">命令文档</see></para>
+    /// </remarks>
+    public bool[] ScriptExists(ReadOnlySpan<string> sha1, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.ScriptExists(sha1) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// This is a read-only variant of the FCALL command that cannot execute commands that modify data
-        /// <para>Available since: 7.0.0</para>
-        /// <para>执行只读的Lua函数. 无法执行包含写入操作的函数</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="function">function name
-        /// <para>要执行的函数名称</para>
-        /// </param>
-        /// <param name="keys">Keys</param>
-        /// <param name="args">args</param>
-        /// <param name="dataType">The function returns a value parsing type, which defaults to string
-        /// <para>函数返回值解析类型, 默认为string</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public object? FCall_Ro(string function, string[]? keys, string[]? args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
-#else
-        public object FCall_Ro(string function, string[] keys, string[] args, ResultDataType dataType = ResultDataType.Default, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.Call(ScriptCommands.FCall_Ro(function, keys, args).SetResultDataType(dataType), ResultType.Object, cancellationToken);
-        }
+    /// <summary>
+    /// Returns information about the existence of the scripts in the script cache.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>根据指定的Lua脚本SHA1值, 返回是否加载缓存了该Lua脚本</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="sha1">One or more SHA1 digests to look up in the script cache.
+    /// <para>要判断的Lua脚本SHA1值, 支持多个</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>Returns true if present, otherwise returns false.
+    /// <para>存在返回true, 否则返回false</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/script-exists">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/script-exists">命令文档</see></para>
+    /// </remarks>
+    public bool[] ScriptExists(ICollection<string> sha1, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.ScriptExists(sha1) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Return the serialized payload of loaded libraries. You can restore the serialized payload later with the FUNCTION RESTORE command
-        /// <para>Available since: 7.0.0</para>
-        /// <para>序列化已加载的函数库。可以使用FUNCTION RESTORE命令恢复函数库</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>serialized payload
-        /// <para>序列化后的函数库</para>
-        /// </returns>
-        public byte[] FunctionDump(CancellationToken cancellationToken = default)
-        {
-            return base._call.CallBytes(ScriptCommands.FunctionDump(), cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    /// <summary>
+    /// Flush the Lua scripts cache.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>清除所有已加载缓存的Lua脚本</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="mode">Flush the script cache asynchronously (<b>ASYNC</b>) or synchronously (<b>SYNC</b>).
+    /// <para><b>Starting from version 6.2.0 of Redis, this parameter has been supported.</b></para>
+    /// <para>指定异步或同步清除</para>
+    /// <para><b>Redis 6.2.0及以上版本才支持此参数</b></para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/script-flush">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/script-flush">命令文档</see></para>
+    /// </remarks>
+    public bool ScriptFlush(AsyncSync mode = AsyncSync.None, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.ScriptFlush(mode) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Deletes all the libraries
-        /// <para>Available since: 7.0.0</para>
-        /// <para>删除所有函数库</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="mode">Flushing Mode
-        /// <para>删除模式, 可选同步或异步. 默认不设置</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool FunctionFlush(FlushingMode mode = FlushingMode.None, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(ScriptCommands.FunctionFlush(mode), "OK", cancellationToken);
-        }
-
-        /// <summary>
-        /// Restore libraries from the serialized payload
-        /// <para>Available since: 7.0.0</para>
-        /// <para>把序列化的函数库恢复函数到Redis</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="serializedPayload">serialized payload
-        /// <para>序列化的函数</para>
-        /// </param>
-        /// <param name="mode">Restore mode, defalut append
-        /// <para>恢复模式, 默认为Append模式</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool FunctionRestore(byte[] serializedPayload, FunctionRestoreMode mode = FunctionRestoreMode.Append, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(ScriptCommands.FunctionRestore(serializedPayload, mode), "OK", cancellationToken);
-        }
-
-        /// <summary>
-        /// Kill a function that is currently executing
-        /// <para>Available since: 7.0.0</para>
-        /// <para>杀死(结束)当前正在运行的函数</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool FunctionKill(CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(ScriptCommands.FunctionKill(), "OK", cancellationToken);
-        }
-
-        /// <summary>
-        /// Return information about the functions and libraries
-        /// <para>Available since: 7.0.0</para>
-        /// <para>返回有关函数和库的信息</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="libraryNamePattern">You can use the optional LIBRARYNAME argument to specify a pattern for matching library names
-        /// <para>库名称筛选模式, 默认没有</para>
-        /// </param>
-        /// <param name="withCode">The optional WITHCODE modifier will cause the server to include the libraries source implementation in the reply
-        /// <para>是否包含源码返回, 默认不包含</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public FunctionInfoValue[]? FunctionList(string? libraryNamePattern = null, bool withCode = false, CancellationToken cancellationToken = default)
-#else
-        public FunctionInfoValue[] FunctionList(string libraryNamePattern = null, bool withCode = false, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallClassArray<FunctionInfoValue>(ScriptCommands.FunctionList(libraryNamePattern, withCode), ResultType.Array | ResultType.FunctionInfoValue, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
-
-        /// <summary>
-        /// Return information about the function that's currently running and information about the available execution engines
-        /// <para>Available since: 7.0.0</para>
-        /// <para>获得当前正在运行的函数信息和可用的引擎信息</para>
-        /// </summary>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public FunctionStatsValue FunctionStats(CancellationToken cancellationToken = default)
-        {
-            return base._call.CallClass<FunctionStatsValue>(ScriptCommands.FunctionStats().SetResultDataType(ResultDataType.Default), ResultType.FunctionStatsValue, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
-        #endregion
+    /// <summary>
+    /// Kills the currently executing <b>EVAL</b> script, assuming no write operation was yet performed by the script.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>终止当前通过 <b>EVAL</b> 命令正在执行的Lua脚本, 前提是该脚本尚未执行任何写入操作</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/script-kill">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/script-kill">命令文档</see></para>
+    /// </remarks>
+    public bool ScriptKill(CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(ScriptCommands.ScriptKill() | flags, cancellationToken);
     }
 }

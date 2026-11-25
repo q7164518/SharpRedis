@@ -1,372 +1,183 @@
-﻿#if NET8_0_OR_GREATER
-#pragma warning disable IDE0301
-#endif
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-using System.Diagnostics.CodeAnalysis;
-#endif
+#nullable enable
+using SharpRedis.Enums;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 
-namespace SharpRedis.Extensions
+namespace SharpRedis.Extensions;
+
+internal static class DataPacketExtensions
 {
-    internal static class DataPacketExtensions
+    // Created only when an aggregate crosses a receive boundary.
+    internal sealed class PartialAggregate
     {
-        private const byte _r = 13;
-        private const byte _n = 10;
-        private const string _unknownErrorMsg = "Unknown error, error message cannot be obtained";
+        internal RespType _type;
+        internal Array _items = null!;
+        internal int _index;
+        internal RedisResult? _key;
+        internal PartialAggregate? _child;
+    }
 
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-        internal static bool GetNextValue(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, [NotNullWhen(true)] out object? data)
-#else
-        internal static bool GetNextValue(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, out object data)
-#endif
-        {
-            if (packetData is null || packetData.Length <= 0)
-            {
-                data = null;
-                return false;
-            }
-            var type = packetData.ReadByte();
-            switch (type)
-            {
-                case 33: // ! Bulk errors
-                    {
-                        if (DataPacketExtensions.ParseBulkErrors(packetData, encoding, dataType, out var ex))
-                        {
-                            data = ex;
-                            return true;
-                        }
-                        goto case -1;
-                    }
-                case 35: // # boolean
-                    {
-                        if (DataPacketExtensions.ParseLine(packetData, out var boolean))
-                        {
-                            data = new BooleanValue(encoding.GetString(boolean));
-                            return true;
-                        }
-                        goto case -1;
-                    }
-                case 36: //$ Bulk strings
-                    {
-                        if (DataPacketExtensions.ParseBulkStrings(packetData, encoding, dataType, out var stringData))
-                        {
-                            data = stringData;
-                            return true;
-                        }
-                        goto case -1;
-                    }
-                case 37: // % Hash
-                    {
-                        if (DataPacketExtensions.ParseHash(packetData, encoding, dataType, out var hash))
-                        {
-                            data = hash;
-                            return true;
-                        }
-                        goto case -1;
-                    }
-                case 43: //+ Simple strings
-                    {
-                        if (DataPacketExtensions.ParseLine(packetData, out var simple))
-                        {
-                            if (dataType is ResultDataType.Bytes) data = simple;
-                            else data = encoding.GetString(simple);
-                            return true;
-                        }
-                        goto case -1;
-                    }
-                case 40: //( Big numbers
-                case 44: //, double
-                case 58: //: int long
-                    {
-                        if (DataPacketExtensions.ParseLine(packetData, out var number))
-                        {
-                            data = new NumberValue(encoding.GetString(number), type);
-                            return true;
-                        }
-                        goto case -1;
-                    }
-                case 45: //- Simple Errors
-                    {
-                        if (DataPacketExtensions.ParseSimpleErrors(packetData, encoding, out var ex))
-                        {
-                            data = ex;
-                            return true;
-                        }
-                        goto case -1;
-                    }
-                case 42: //* Array
-                case 62: // > Pushes
-                case 126: // ~ Sets
-                    {
-                        if (DataPacketExtensions.ParseArray(packetData, encoding, dataType, out var array))
-                        {
-                            data = array;
-                            return true;
-                        }
-                        goto case -1;
-                    }
-                case 95: // _ null
-                    {
-                        packetData.Position += 2; // \r\n
-                        data = DBNull.Value;
-                        return true;
-                    }
-                default:
-                    {
-                        data = new FormatException($"Unsupported data type: {(char)type}");
-                        return true;
-                    }
-                case -1:
-                    {
-                        data = null;
-                        return false;
-                    }
-            }
-        }
+    internal static bool GetRawValue(byte[] buffer, int end, ref int position, Encoding encoding, bool isBytes,
+        ref PartialAggregate? partial, out RedisResult result)
+    {
+        result = default;
+        if (partial is not null)
+            return ReadItems(buffer, end, ref position, encoding, isBytes, partial._type, partial._items, ref partial, out result);
+        if (position == end) return false;
 
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        private static bool ParseBulkErrors(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, [NotNullWhen(true)] out RedisException? ex)
-#else
-        private static bool ParseBulkErrors(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, out RedisException ex)
-#endif
+        int start = position + 1;
+        var type = (RespType)buffer[position];
+        switch (type)
         {
-            if (DataPacketExtensions.ParseBulkStrings(packetData, encoding, dataType, out var errorMsgObject))
-            {
-                if (errorMsgObject is byte[] errorMsgBytes && errorMsgBytes.Length > 0)
+            case RespType.BulkStrings:
+            case RespType.BulkErrors:
+            case RespType.VerbatimString:
+                if (!ReadLength(buffer, end, ref start, out int length)) return false;
+                if (length == -1 && type == RespType.BulkStrings)
                 {
-                    ex = new RedisException(encoding.GetString(errorMsgBytes));
+                    position = start;
+                    result = new(type, DBNull.Value, encoding);
                     return true;
                 }
-                if (errorMsgObject is string errorMsg && !string.IsNullOrEmpty(errorMsg))
+                if (length < 0 || (type == RespType.VerbatimString && length < 4))
+                    throw new FormatException("Invalid RESP payload length.");
+                if (end - start - 2 < length) return false;
+                CheckTerminator(buffer, start + length);
+                position = start + length + 2;
+                if (type == RespType.VerbatimString)
                 {
-                    ex = new RedisException(errorMsg);
+                    if (buffer[start + 3] != ':') throw new FormatException("Invalid verbatim string.");
+                    start += 4;
+                    length -= 4;
+                }
+                result = new(type, ReadText(buffer, start, length, encoding, isBytes && type != RespType.BulkErrors), encoding);
+                return true;
+
+            case RespType.Null:
+                if (end - start < 2) return false;
+                CheckTerminator(buffer, start);
+                position = start + 2;
+                result = new(type, DBNull.Value, encoding);
+                return true;
+
+            case RespType.Array:
+            case RespType.Set:
+            case RespType.Push:
+            case RespType.Maps:
+                if (!ReadLength(buffer, end, ref start, out int count)) return false;
+                position = start;
+                if (type == RespType.Set) type = RespType.Array; // Existing result representation.
+                if (count <= 0)
+                {
+                    result = new(type, DBNull.Value, encoding);
                     return true;
                 }
+                Array items = type == RespType.Maps ? new KeyValuePair<RedisResult, RedisResult>[count] : new RedisResult[count];
+                return ReadItems(buffer, end, ref position, encoding, isBytes, type, items, ref partial, out result);
 
-                ex = new RedisException(DataPacketExtensions._unknownErrorMsg);
+            case RespType.SimpleString:
+            case RespType.SimpleErrors:
+            case RespType.Boolean:
+            case RespType.Integer:
+            case RespType.BigNumber:
+            case RespType.Double:
+                int size = buffer.AsSpan(start, end - start).IndexOf(Config.CR);
+                if (size < 0 || end - start - size < 2) return false;
+                CheckTerminator(buffer, start + size);
+                position = start + size + 2;
+                result = new(type, size == 0 && type == RespType.SimpleErrors ? Config.UNKNOWN_ERROR_MSG
+                    : ReadText(buffer, start, size, encoding, isBytes && type == RespType.SimpleString), encoding);
                 return true;
+            default:
+                throw new FormatException($"Unsupported RESP type: {(char)buffer[position]}");
+        }
+    }
+
+    private static object ReadText(byte[] buffer, int start, int length, Encoding encoding, bool isBytes)
+        => isBytes ? buffer.AsSpan(start, length).ToArray() : encoding.GetString(buffer, start, length);
+
+    private static bool ReadItems(byte[] buffer, int end, ref int position, Encoding encoding, bool isBytes,
+        RespType type, Array items, ref PartialAggregate? partial, out RedisResult result)
+    {
+        int i = partial?._index ?? 0;
+        var key = partial?._key;
+        var child = partial?._child;
+        if (items is RedisResult[] array)
+        {
+            for (; i < array.Length; i++)
+            {
+                if (!GetRawValue(buffer, end, ref position, encoding, isBytes, ref child, out array[i])) break;
             }
-            ex = null;
-            return false;
+        }
+        else
+        {
+            var maps = (KeyValuePair<RedisResult, RedisResult>[])items;
+            for (; i < maps.Length; i++)
+            {
+                if (!key.HasValue)
+                {
+                    if (!GetRawValue(buffer, end, ref position, encoding, isBytes, ref child, out var nextKey)) break;
+                    key = nextKey;
+                }
+                if (!GetRawValue(buffer, end, ref position, encoding, isBytes, ref child, out var value)) break;
+                maps[i] = new(key.Value, value);
+                key = null;
+            }
         }
 
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        private static bool ParseSimpleErrors(MemoryStream packetData, Encoding encoding, [NotNullWhen(true)] out RedisException? ex)
-#else
-        private static bool ParseSimpleErrors(MemoryStream packetData, Encoding encoding, out RedisException ex)
-#endif
+        if (i == items.Length)
         {
-            if (DataPacketExtensions.ParseLine(packetData, out var errorMsg))
-            {
-                if (errorMsg?.Length > 0)
-                {
-                    ex = new RedisException(encoding.GetString(errorMsg));
-                }
-                else
-                {
-                    ex = new RedisException(DataPacketExtensions._unknownErrorMsg);
-                }
-                return true;
-            }
-            ex = null;
-            return false;
-        }
-
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        private static bool ParseBulkStrings(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, [NotNullWhen(true)] out object? data)
-#else
-        private static bool ParseBulkStrings(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, out object data)
-#endif
-        {
-            if (!DataPacketExtensions.GetCount(packetData, out var length))
-            {
-                data = null;
-                return false;
-            }
-            if (length is 0)
-            {
-                if (dataType is ResultDataType.Bytes)
-                {
-                    data = Array.Empty<byte>();
-                }
-                else
-                {
-                    data = string.Empty;
-                }
-                packetData.Position += 2;  // \r\n
-                return true;
-            }
-            if (length is -1)
-            {
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                data = null!;
-#else
-                data = null;
-#endif
-                return true;
-            }
-            if (packetData.Length - packetData.Position < length + 2)
-            {
-                data = null;
-                return false;
-            }
-
-            var buffer = new byte[length];
-            packetData.Read(buffer, 0, length);
-            packetData.Position += 2;  // \r\n
-            if (dataType is ResultDataType.Bytes)
-            {
-                data = buffer;
-            }
-            else
-            {
-                data = encoding.GetString(buffer);
-            }
+            partial = null;
+            result = new(type, items, encoding);
             return true;
         }
+        partial ??= new() { _type = type, _items = items };
+        partial._index = i;
+        partial._key = key;
+        partial._child = child;
+        result = default;
+        return false;
+    }
 
-        private static bool GetCount(MemoryStream packetData, out int count)
+    private static bool ReadLength(byte[] buffer, int end, ref int start, out int length)
+    {
+        // The common one-digit length needs no loop or overflow checks.
+        if (end - start >= 3 && buffer[start + 1] == Config.CR)
         {
-            if (DataPacketExtensions.ParseLine(packetData, out var line) && Extend.ConvertByteArrayToInt(line, out count))
-            {
-                return true;
-            }
-            count = 0;
-            return false;
-        }
-
-        #region ParseArray
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        private static bool ParseArray(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, [NotNullWhen(true)] out object?[]? array)
-#else
-        private static bool ParseArray(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, out object[] array)
-#endif
-        {
-            if (!DataPacketExtensions.GetCount(packetData, out var count))
-            {
-                array = null;
-                return false;
-            }
-            if (count <= 0)
-            {
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                array = null!;
-#else
-                array = null;
-#endif
-                return true;
-            }
-
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-            array = new object?[count];
-#else
-            array = new object[count];
-#endif
-            for (uint i = 0; i < count; i++)
-            {
-                if (DataPacketExtensions.GetNextValue(packetData, encoding, dataType, out var value))
-                {
-                    array[i] = value;
-                    continue;
-                }
-                array = null;
-                return false;
-            }
+            length = buffer[start] - '0';
+            if ((uint)length > 9) throw new FormatException("Invalid RESP length.");
+            CheckTerminator(buffer, start + 1);
+            start += 3;
             return true;
         }
-        #endregion
-
-        #region ParseHash
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        private static bool ParseHash(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, [NotNullWhen(true)] out Dictionary<string, object?>? dict)
-#else
-        private static bool ParseHash(MemoryStream packetData, Encoding encoding, in ResultDataType dataType, out Dictionary<string, object> dict)
-#endif
+        length = 0;
+        int i = start;
+        if (i == end) return false;
+        bool negative = buffer[i] == '-';
+        if (negative) i++;
+        int digits = i;
+        for (; i < end; i++)
         {
-            if (!DataPacketExtensions.GetCount(packetData, out var count))
+            int digit = buffer[i] - '0';
+            if ((uint)digit <= 9)
             {
-                dict = null;
-                return false;
+                length = checked(length * 10 + digit);
+                continue;
             }
-            if (count <= 0)
-            {
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                dict = null!;
-#else
-                dict = null;
-#endif
-                return true;
-            }
-
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-            dict = new Dictionary<string, object?>(count);
-#else
-            dict = new Dictionary<string, object>(count);
-#endif
-            for (uint i = 0; i < count; i++)
-            {
-                if (!DataPacketExtensions.GetNextValue(packetData, encoding, dataType, out var key))
-                {
-                    return false;
-                }
-                if (!DataPacketExtensions.GetNextValue(packetData, encoding, dataType, out var value))
-                {
-                    return false;
-                }
-
-                if (key is string sKey)
-                {
-                    dict[sKey] = value;
-                }
-                else if (key is byte[] keyBytes)
-                {
-                    dict[encoding.GetString(keyBytes)] = value;
-                }
-            }
+            if (i == digits || buffer[i] != Config.CR) throw new FormatException("Invalid RESP length.");
+            if (end - i < 2) return false;
+            CheckTerminator(buffer, i);
+            start = i + 2;
+            if (negative) length = -length;
             return true;
         }
-        #endregion
+        return false;
+    }
 
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        private static bool ParseLine(MemoryStream packetData, [NotNullWhen(true)] out byte[]? line)
-#else
-        private static bool ParseLine(MemoryStream packetData, out byte[] line)
-#endif
-        {
-            var startPosition = packetData.Position;
-            var remaining = (int)(packetData.Length - startPosition);
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-            Span<byte> buffer = stackalloc byte[remaining];
-            int bytesRead = packetData.Read(buffer);
-            int newlineIndex = buffer.IndexOf(DataPacketExtensions._n);
-            if (newlineIndex > 0 && buffer[newlineIndex - 1] == DataPacketExtensions._r)
-            {
-                line = buffer[..(newlineIndex - 1)].ToArray();
-                packetData.Position = startPosition + newlineIndex + 1;
-                return true;
-            }
-#else
-            var buffer = new byte[remaining];
-            int bytesRead = packetData.Read(buffer, 0, remaining);
-            int newlineIndex = System.Array.IndexOf(buffer, DataPacketExtensions._n);
-            if (newlineIndex > 0 && buffer[newlineIndex - 1] == DataPacketExtensions._r)
-            {
-                line = new byte[newlineIndex - 1];
-#if NET46_OR_GREATER || NETSTANDARD2_0_OR_GREATER
-                Array.Copy(buffer, 0, line, 0, line.Length);
-#else
-                Buffer.BlockCopy(buffer, 0, line, 0, line.Length);
-#endif
-                packetData.Position = startPosition + newlineIndex + 1;
-                return true;
-            }
-#endif
-            packetData.Position = startPosition;
-            line = null;
-            return false;
-        }
+    private static void CheckTerminator(byte[] buffer, int i)
+    {
+        if (buffer[i] != Config.CR || buffer[i + 1] != Config.LF)
+            throw new FormatException("Invalid RESP terminator.");
     }
 }

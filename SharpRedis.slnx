@@ -1,0 +1,29 @@
+<Solution>
+  <Folder Name="/benchmark/">
+    <Project Path="benchmark/Benchmark_NET10/Benchmark_NET10.csproj" Id="8c2c2b70-0fa3-4c54-8181-d5736db70fec" />
+    <Project Path="benchmark/Benchmark_NET11/Benchmark_NET11.csproj" Id="a1c8cd4e-51b7-40da-a881-a257ab785906" />
+  </Folder>
+  <Folder Name="/docs/">
+    <File Path="docs/Cluster.md" />
+    <File Path="docs/MasterSlave.md" />
+    <File Path="docs/Sentinel.md" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+    <File Path="README_zh_cn.md" />
+  </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/Example_NET10/Example_NET10.csproj" Id="18f87e24-c442-4d8a-b628-05240857c673" />
+    <Project Path="examples/Example_NET5/Example_NET5.csproj" Id="48f58660-a47a-4396-b11e-bf4b7a9c10ff" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/SharpRedis.Autofac/SharpRedis.Autofac.csproj" Id="917caf70-b75e-49a4-abb8-052594d5a41d" />
+    <Project Path="src/SharpRedis.DependencyInjection/SharpRedis.DependencyInjection.csproj" Id="4c40e74a-69ad-44e5-9445-02f19b19bc98" />
+    <Project Path="src/SharpRedis.DependencyInjectionKeyedService/SharpRedis.DependencyInjectionKeyedService.csproj" Id="476fad85-2fe8-4cd8-b5d3-731fe7e8c4bf" />
+    <Project Path="src/SharpRedis.Unity/SharpRedis.Unity.csproj" Id="21728616-8fcc-47a0-a373-80d1a0819ce7" />
+    <Project Path="src/SharpRedis/SharpRedis.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MasterSlave/MasterSlave.csproj" />
+    <Project Path="tests/NET10/NET10.csproj" Id="ca1ed4c4-0e0a-4a14-bf43-c338ec473d35" />
+  </Folder>
+</Solution>

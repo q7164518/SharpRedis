@@ -1,41 +1,50 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-		<TargetFrameworks>netstandard2.0;netstandard2.1;net5.0;net6.0;net7.0;net8.0</TargetFrameworks>
-		<Title>SharpRedis.Autofac</Title>
-		<PackageId>SharpRedis.Autofac</PackageId>
-		<Version>0.0.7.0</Version>
-		<Authors>Kwong</Authors>
-		<Description>A pure asynchronous driver of high performance high throughput Redis driver for C#</Description>
-		<PackageTags>SharpRedis.Autofac;SharpRedis;sharpredis;Redis;redis;Redics;RedisClient;RedisHelper;csredis;csharpredis;redisclients;C#Redis;Kwong;kwong;q7164518</PackageTags>
-		<CheckEolTargetFramework>false</CheckEolTargetFramework>
-		<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
-		<GenerateDocumentationFile>True</GenerateDocumentationFile>
-		<Copyright>Kwong</Copyright>
-		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-		<PackageProjectUrl>https://github.com/q7164518/SharpRedis</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/q7164518/SharpRedis</RepositoryUrl>
-		<RepositoryType>git</RepositoryType>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net5.0;net6.0;net7.0;net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
+    <LangVersion>15.0</LangVersion>
+    <Title>SharpRedis.Autofac</Title>
+    <Version>1.0.0</Version>
+    <Authors>Kwong</Authors>
+    <Description>A pure asynchronous driver of high performance high throughput Redis driver for C#</Description>
+    <PackageTags>SharpRedis.Autofac;SharpRedis;sharpredis;Redis;redis;Redics;RedisClient;RedisHelper;csredis;csharpredis;redisclients;C#Redis;Kwong;kwong;q7164518</PackageTags>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <Copyright>Kwong</Copyright>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageProjectUrl>https://github.com/q7164518/SharpRedis</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/q7164518/SharpRedis</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <VerifyReferenceAotCompatibility>true</VerifyReferenceAotCompatibility>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>SharpRedis.png</PackageIcon>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <ApplicationIcon>SharpRedis.ico</ApplicationIcon>
   </PropertyGroup>
 
-	<PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-		<Nullable>enable</Nullable>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(TargetFramework)' == 'net5.0'">
-		<Nullable>enable</Nullable>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(TargetFramework)' == 'net6.0'">
-		<Nullable>enable</Nullable>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(TargetFramework)' == 'net7.0'">
-		<Nullable>enable</Nullable>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
-		<Nullable>enable</Nullable>
-	</PropertyGroup>
-	<ItemGroup>
-	  <PackageReference Include="Autofac" Version="5.0.0" />
-	  <PackageReference Include="SharpRedis" Version="0.0.7" />
-	</ItemGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1' Or '$(TargetFramework)' == 'net5.0' Or '$(TargetFramework)' == 'net6.0' Or '$(TargetFramework)' == 'net7.0' Or '$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0' Or '$(TargetFramework)' == 'net10.0' Or '$(TargetFramework)' == 'net11.0'">
+    <DefineConstants>$(DefineConstants);MODERN_NET</DefineConstants>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="SharpRedis.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\SharpRedis.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Autofac" Version="5.0.0" />
+    <PackageReference Include="SharpRedis" Version="1.0.0" />
+  </ItemGroup>
 
 </Project>

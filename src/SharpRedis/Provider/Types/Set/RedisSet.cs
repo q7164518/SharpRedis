@@ -1,1424 +1,2077 @@
-﻿#if !LOW_NET
-using System.Threading;
-#else
-#pragma warning disable IDE0130
-#endif
-#if !NET8_0_OR_GREATER
-using System.Collections.Generic;
-#endif
-using SharpRedis.Commands;
+﻿using SharpRedis.Commands;
 using SharpRedis.Provider.Standard;
+using SharpRedis.Provider.Types;
+using System;
+using System.Threading;
 
-namespace SharpRedis
+namespace SharpRedis;
+
+/// <summary>
+/// Redis set
+/// <para>If you are new to sets, see <see href="https://redis.io/docs/data-types/sets">Introduction to Redis sets</see></para>
+/// <para>如果你不太懂Sets类型, 请<see href="https://redis.io/docs/data-types/sets">查看Sets文档</see></para>
+/// </summary>
+public sealed partial class RedisSet : RedisTypeBase
 {
     /// <summary>
-    /// Set
-    /// <para>无序不重复集合</para>
+    /// Specifies the execution condition for the SADDEX command.
+    /// <para>指定 SADDEX 命令添加或更新 Set 成员时的执行条件。</para>
     /// </summary>
-    public sealed partial class RedisSet : BaseType
+    public enum AddExWhen : byte
     {
-        internal RedisSet(BaseCall call) : base(call)
-        {
-        }
+        /// <summary>
+        /// No condition is specified.
+        /// <para>不指定执行条件，允许添加新成员或更新已有成员。</para>
+        /// </summary>
+        None = 0,
 
         /// <summary>
-        /// Add the specified members to the set stored at key. Specified members that are already a member of this set are ignored. If key does not exist, a new set is created before adding the specified members.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>添加一个元素到指定Key的Set结构中.</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
+        /// Only execute if none of the specified members exist.
+        /// <para>仅当指定的所有成员都不存在时才执行操作。</para>
+        /// <para>对应 MNX 参数。</para>
         /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="member">member</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements that were added to the set, not including all the elements already present in the set.
-        /// <para>成功添加到集合中的元素. 不包含已存在的</para>
-        /// </returns>
-        public long SAdd(string key, string member, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallNumber<long>(SetCommands.SAdd(key, member), ResultType.Int64, cancellationToken);
-        }
+        MNX = 1,
 
         /// <summary>
-        /// Add the specified members to the set stored at key. Specified members that are already a member of this set are ignored. If key does not exist, a new set is created before adding the specified members.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>添加一个元素到指定Key的Set结构中.</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
+        /// Only execute if all specified members already exist.
+        /// <para>仅当指定的所有成员都已存在时才执行操作。</para>
+        /// <para>对应 MXX 参数。</para>
         /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="member">member</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements that were added to the set, not including all the elements already present in the set.
-        /// <para>成功添加到集合中的元素. 不包含已存在的</para>
-        /// </returns>
-        public long SAdd(string key, byte[] member, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallNumber<long>(SetCommands.SAdd<byte[]>(key, member), ResultType.Int64, cancellationToken);
-        }
+        MXX = 2,
+    }
+
+    /// <summary>
+    /// Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </summary>
+    public enum ExpirationWhen : byte
+    {
+        /// <summary>
+        /// No specification
+        /// <para>不指定</para>
+        /// </summary>
+        None = 0,
 
         /// <summary>
-        /// Add the specified members to the set stored at key. Specified members that are already a member of this set are ignored. If key does not exist, a new set is created before adding the specified members.
-        /// <para>Available since: 1.0.0 | 2.4.0</para>
-        /// <para>添加一个或多个元素到指定Key的Set结构中.</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+ | 2.4.0+</para>
+        /// For each specified field, set expiration only when the field has no expiration.
+        /// <para>仅在字段本身不存在过期时间的时候设置有效期</para>
         /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="members">members</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements that were added to the set, not including all the elements already present in the set.
-        /// <para>成功添加到集合中的元素. 不包含已存在的</para>
-        /// </returns>
-        public long SAdd(string key, string[] members, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallNumber<long>(SetCommands.SAdd(key, members), ResultType.Int64, cancellationToken);
-        }
+        NX,
 
         /// <summary>
-        /// Add the specified members to the set stored at key. Specified members that are already a member of this set are ignored. If key does not exist, a new set is created before adding the specified members.
-        /// <para>Available since: 1.0.0 | 2.4.0</para>
-        /// <para>添加一个或多个元素到指定Key的Set结构中.</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+ | 2.4.0+</para>
+        /// For each specified field, set expiration only when the field has an existing expiration.
+        /// <para>仅在字段本身存在过期时间的时候设置有效期</para>
         /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="members">members</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements that were added to the set, not including all the elements already present in the set.
-        /// <para>成功添加到集合中的元素. 不包含已存在的</para>
-        /// </returns>
-        public long SAdd(string key, byte[][] members, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallNumber<long>(SetCommands.SAdd(key, members), ResultType.Int64, cancellationToken);
-        }
+        XX,
 
         /// <summary>
-        /// Returns the set cardinality (number of elements) of the set stored at key.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>获得指定Key的Set中元素个数</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
+        /// For each specified field, set expiration only when the new expiration is greater than current one.
+        /// <para>仅在新的到期时间大于字段本身到期的时候设置有效期</para>
         /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>The cardinality (number of elements) of the set, or 0 if the key does not exist.
-        /// <para>Set集合的元素个数, Key不存在返回0</para>
-        /// </returns>
-        public long SCard(string key, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallNumber<long>(SetCommands.SCard(key), ResultType.Int64, cancellationToken);
-        }
+        GT,
 
         /// <summary>
-        /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中差值集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
+        /// For each specified field, set expiration only when the new expiration is less than current one.
+        /// <para>仅在新的到期时间小于字段本身到期的时候设置有效期</para>
         /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SDiff(string key, string secondKey, CancellationToken cancellationToken = default)
+        LT,
+    }
+
+    internal RedisSet(BaseRedis redis)
+        : base(redis)
+    { }
+
+    /// <summary>
+    /// Add the specified member to the set stored at key
+    /// <para>Available since: 1.0.0</para>
+    /// <para>将一个元素添加到指定Key的集合中</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key">key</param>
+    /// <param name="member">member</param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements that were added to the set, not including all the elements already present in the set.
+    /// <para>成功添加到集合中的元素数量, 不包括集合中已存在的元素</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SAdd">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SAdd">命令文档</see></para>
+    /// </remarks>
+    public int SAdd(SharpValue key, SharpValue member, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SAdd(key, member) | flags, cancellationToken);
+
+    /// <summary>
+    /// Add the specified members to the set stored at key
+    /// <para>Available since: 2.4.0</para>
+    /// <para>将多个元素添加到指定Key的集合中</para>
+    /// <para>支持此命令的Redis版本, 2.4.0+</para>
+    /// </summary>
+    /// <param name="key">key</param>
+    /// <param name="members">Multiple members</param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements that were added to the set, not including all the elements already present in the set.
+    /// <para>成功添加到集合中的元素数量, 不包括集合中已存在的元素</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SAdd">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SAdd">命令文档</see></para>
+    /// </remarks>
+    public int SAdd(SharpValue key, SharpValueSpan members, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SAdd(key, members) | flags, cancellationToken);
+
+    /// <summary>
+    /// Returns the set cardinality (number of elements) of the set stored at key.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>获得指定Key的集合中元素数量</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key">Key</param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The cardinality (number of elements) of the set, or 0 if the key does not exist.
+    /// <para>集合中元素的数量, Key不存在返回0</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SCard">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SCard">命令文档</see></para>
+    /// </remarks>
+    public long SCard(SharpValue key, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SCard(key) | flags, cancellationToken);
+
+    /// <summary>
+    /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>获得第一个Key与第二个Key的差值</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key1"></param>
+    /// <param name="key2"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>A list with members of the resulting set.
+    /// <para>差值结果数组</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SDiff">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SDiff">命令文档</see></para>
+    /// </remarks>
+    public
+#if MODERN_NET
+    RedisResult[]?
 #else
-        public string[] SDiff(string key, string secondKey, CancellationToken cancellationToken = default)
+    RedisResult[]
 #endif
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<string>(SetCommands.SDiff([key, secondKey]), ResultType.Array | ResultType.String, cancellationToken)!;
-#else
-            return base._call.CallClassArray<string>(SetCommands.SDiff(new string[] { key, secondKey }), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-#endif
-        }
+    SDiff(SharpValue key1, SharpValue key2, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SDiff(key1, key2) | flags, cancellationToken);
 
-        /// <summary>
-        /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中差值集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SDiff(string key, string[] keys, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>获得第一个Key与后续所有Key的差值</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="keys"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>A list with members of the resulting set.
+    /// <para>差值结果数组</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SDiff">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SDiff">命令文档</see></para>
+    /// </remarks>
+    public
+#if MODERN_NET
+    RedisResult[]?
 #else
-        public string[] SDiff(string key, string[] keys, CancellationToken cancellationToken = default)
+    RedisResult[]
 #endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<string>(SetCommands.SDiff([key, .. keys]), ResultType.Array | ResultType.String, cancellationToken)!;
+    SDiff(SharpValueSpan keys, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SDiff(keys) | flags, cancellationToken);
+
+    /// <summary>
+    /// This command is equal to SDIFF, but instead of returning the resulting set, it is stored in destination.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>和SDIFF命令效果一样, 只不过不返回差值, 而是把结果存储在指定的destination中</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="destination">destination key
+    /// <para>保存差值结果的Key</para>
+    /// </param>
+    /// <param name="key1"></param>
+    /// <param name="key2"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting set.
+    /// <para>差值元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SDiffStore">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SDiffStore">命令文档</see></para>
+    /// </remarks>
+    public long SDiffStore(SharpValue destination, SharpValue key1, SharpValue key2, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SDiffStore(key1, key2, destination) | flags, cancellationToken);
+
+    /// <summary>
+    /// This command is equal to SDIFF, but instead of returning the resulting set, it is stored in destination.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>和SDIFF命令效果一样, 只不过不返回差值, 而是把结果存储在指定的destination中</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="destination">destination key
+    /// <para>保存差值结果的Key</para>
+    /// </param>
+    /// <param name="keys"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting set.
+    /// <para>差值元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SDiffStore">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SDiffStore">命令文档</see></para>
+    /// </remarks>
+    public long SDiffStore(SharpValue destination, SharpValueSpan keys, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SDiffStore(keys, destination) | flags, cancellationToken);
+
+    /// <summary>
+    /// Returns all the members of the set value stored at key.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>获得指定Key集合中的所有元素</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>An array with all the members of the set.
+    /// <para>集合中所有元素的数组</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SMembers">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SMembers">命令文档</see></para>
+    /// </remarks>
+    public
+#if MODERN_NET
+    RedisResult[]?
 #else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallClassArray<string>(SetCommands.SDiff(listKeys.ToArray()), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
+    RedisResult[]
 #endif
-                ;
-#endif
-        }
+    SMembers(SharpValue key, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SMembers(key) | flags, cancellationToken);
 
-        /// <summary>
-        /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中差值集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SDiff(string[] keys, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Returns the members of the set resulting from the intersection of all the given sets.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>获得第一个Key与第二个Key的交集</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key1"></param>
+    /// <param name="key2"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>A list with members of the resulting set.
+    /// <para>差值结果数组</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SInter">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SInter">命令文档</see></para>
+    /// </remarks>
+    public
+#if MODERN_NET
+    RedisResult[]?
 #else
-        public string[] SDiff(string[] keys, CancellationToken cancellationToken = default)
+    RedisResult[]
 #endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallClassArray<string>(SetCommands.SDiff(keys), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    SInter(SharpValue key1, SharpValue key2, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SInter(key1, key2) | flags, cancellationToken);
 
-        /// <summary>
-        /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中差值集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SDiffBytes(string key, string secondKey, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Returns the members of the set resulting from the intersection of all the given sets.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>获得第一个Key与后续所有Key的交集</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="keys"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>A list with members of the resulting set.
+    /// <para>差值结果数组</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SInter">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SInter">命令文档</see></para>
+    /// </remarks>
+    public
+#if MODERN_NET
+    RedisResult[]?
 #else
-        public byte[][] SDiffBytes(string key, string secondKey, CancellationToken cancellationToken = default)
+    RedisResult[]
 #endif
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<byte[]>(SetCommands.SDiff([key, secondKey]), ResultType.Array | ResultType.Bytes, cancellationToken)!;
+    SInter(SharpValueSpan keys, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SInter(keys) | flags, cancellationToken);
+
+    /// <summary>
+    /// This command is similar to <b>SINTER</b>, but instead of returning the result set, it returns just the cardinality of the result.
+    /// <para>Available since: 7.0.0</para>
+    /// <para>该命令和<b>SINTER</b>类似, 不过不返回交集值, 而是返回交集数量</para>
+    /// <para>支持此命令的Redis版本, 7.0.0+</para>
+    /// </summary>
+    /// <param name="key1"></param>
+    /// <param name="key2"></param>
+    /// <param name="limit"> When provided with the optional LIMIT argument (which defaults to 0 and means unlimited), if the intersection cardinality reaches limit partway through the computation, the algorithm will exit and yield limit as the cardinality.
+    /// <para>限制最多交集元素数量, 默认0, 表示不限制</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting intersection.
+    /// <para>交集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SInterCard">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SInterCard">命令文档</see></para>
+    /// </remarks>
+    public long SInterCard(SharpValue key1, SharpValue key2, ulong limit = 0, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SInterCard(key1, key2, limit) | flags, cancellationToken);
+
+    /// <summary>
+    /// This command is similar to <b>SINTER</b>, but instead of returning the result set, it returns just the cardinality of the result.
+    /// <para>Available since: 7.0.0</para>
+    /// <para>该命令和<b>SINTER</b>类似, 不过不返回交集值, 而是返回交集数量</para>
+    /// <para>支持此命令的Redis版本, 7.0.0+</para>
+    /// </summary>
+    /// <param name="keys"></param>
+    /// <param name="limit"> When provided with the optional LIMIT argument (which defaults to 0 and means unlimited), if the intersection cardinality reaches limit partway through the computation, the algorithm will exit and yield limit as the cardinality.
+    /// <para>限制最多交集元素数量, 默认0, 表示不限制</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting intersection.
+    /// <para>交集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SInterCard">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SInterCard">命令文档</see></para>
+    /// </remarks>
+    public long SInterCard(SharpValueSpan keys, ulong limit = 0, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SInterCard(keys, limit) | flags, cancellationToken);
+
+    /// <summary>
+    /// This command is equal to <b>[SINTER]</b>, but instead of returning the resulting set, it is stored in destination.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>和<b> [SINTER] </b>命令效果一样, 只不过不返回差值, 而是把结果存储在指定的destination中</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="destination">destination key
+    /// <para>保存交集结果的Key</para>
+    /// </param>
+    /// <param name="key1"></param>
+    /// <param name="key2"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the result set.
+    /// <para>交集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SInterStore">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SInterStore">命令文档</see></para>
+    /// </remarks>
+    public long SInterStore(SharpValue destination, SharpValue key1, SharpValue key2, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SInterStore(key1, key2, destination) | flags, cancellationToken);
+
+    /// <summary>
+    /// This command is equal to <b>[SINTER]</b>, but instead of returning the resulting set, it is stored in destination.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>和<b> [SINTER] </b>命令效果一样, 只不过不返回差值, 而是把结果存储在指定的destination中</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="destination">destination key
+    /// <para>保存交集结果的Key</para>
+    /// </param>
+    /// <param name="keys"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the result set.
+    /// <para>交集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SInterStore">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SInterStore">命令文档</see></para>
+    /// </remarks>
+    public long SInterStore(SharpValue destination, SharpValueSpan keys, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SInterStore(keys, destination) | flags, cancellationToken);
+
+    /// <summary>
+    /// Returns if member is a member of the set stored at key.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>指定Key的集合中是否存在指定的元素</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="member">member<para>要判断是否存在的元素</para></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns><b>False</b> if the element is not a member of the set, or when the key does not exist. <b>True</b> if the element is a member of the set.
+    /// <para>Key不存在或Key中不存在该元素返回False, 否则返回True</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SIsMember">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SIsMember">命令文档</see></para>
+    /// </remarks>
+    public bool SIsMember(SharpValue key, SharpValue member, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SIsMember(key, member) | flags, cancellationToken);
+
+    /// <summary>
+    /// Returns whether each member is a member of the set stored at key.
+    /// <para>Available since: 6.2.0</para>
+    /// <para>指定Key的集合中是否存在指定的多个元素</para>
+    /// <para>支持此命令的Redis版本, 6.2.0+</para>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="members">members<para>要判断是否存在的多个元素集合</para></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>For every member, True is returned if the value is a member of the set, or False if the element is not a member of the set or if key does not exist.
+    /// <para>是否存在数组, 跟指定的元素顺序一致, True存在, False不存在</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SMIsMember">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SMIsMember">命令文档</see></para>
+    /// </remarks>
+    public bool[] SMIsMember(SharpValue key, SharpValueSpan members, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SMIsMember(key, members) | flags, cancellationToken);
+
+    /// <summary>
+    /// Move member from the set at source to the set at destination.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>将一个元素从指定的源集合中移动到指定的目标集合中</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="source">source key<para>源集合Key</para></param>
+    /// <param name="destination">destination key<para>目标集合Key</para></param>
+    /// <param name="member">member<para>要移动的元素</para></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>True if the element is moved, False if the element is not a member of source and no operation was performed.
+    /// <para>如果元素被移动返回True, 如果元素在源集合中不存在返回False</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SMove">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SMove">命令文档</see></para>
+    /// </remarks>
+    public bool SMove(SharpValue source, SharpValue destination, SharpValue member, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SMove(source, destination, member) | flags, cancellationToken);
+
+    /// <summary>
+    /// Removes and returns one random member from the set value store at key.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>从指定Key的集合中随机返回并移除一个元素</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPop">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPop">命令文档</see></para>
+    /// </remarks>
+    public RedisResult SPop(SharpValue key, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SPop(key, null) | flags, cancellationToken);
+
+    /// <summary>
+    /// Removes and returns more random members from the set value store at key.
+    /// <para>Available since: 3.2.0</para>
+    /// <para>从指定Key的集合中随机返回并移除多个元素</para>
+    /// <para>支持此命令的Redis版本, 3.2.0+</para>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="count">count<para>要弹出的元素个数</para></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPop">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPop">命令文档</see></para>
+    /// </remarks>
+    public
+#if MODERN_NET
+    RedisResult[]?
 #else
-            return base._call.CallClassArray<byte[]>(SetCommands.SDiff(new string[] { key, secondKey }), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
+    RedisResult[]
 #endif
-                ;
-#endif
-        }
+    SPop(SharpValue key, ulong count, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SPop(key, count) | flags, cancellationToken);
 
-        /// <summary>
-        /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中差值集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SDiffBytes(string key, string[] keys, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Gets one random member from the set value store at key.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>从指定Key的集合中随机获得一个元素</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SRandMember">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SRandMember">命令文档</see></para>
+    /// </remarks>
+    public RedisResult SRandMember(SharpValue key, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SRandMember(key, null) | flags, cancellationToken);
+
+    /// <summary>
+    /// Gets more random member from the set value store at key.
+    /// <para>Available since: 2.6.0</para>
+    /// <para>从指定Key的集合中随机获得多个元素</para>
+    /// <para>支持此命令的Redis版本, 2.6.0+</para>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="count">
+    /// If the provided count argument is positive, return an array of distinct elements.
+    /// <para>If called with a negative count, the behavior changes and the command is allowed to return the same element multiple times. In this case, the number of returned elements is the absolute value of the specified count.</para>
+    /// <para>获得的元素数量, 如果为正数, 返回的元素不会重复, 如果为负数, 返回的元素可能会重复</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SRandMember">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SRandMember">命令文档</see></para>
+    /// </remarks>
+    public
+#if MODERN_NET
+    RedisResult[]?
 #else
-        public byte[][] SDiffBytes(string key, string[] keys, CancellationToken cancellationToken = default)
+    RedisResult[]
 #endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<byte[]>(SetCommands.SDiff([key, .. keys]), ResultType.Array | ResultType.Bytes, cancellationToken)!;
+    SRandMember(SharpValue key, long count, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SRandMember(key, count) | flags, cancellationToken);
+
+    /// <summary>
+    /// Remove the specified members from the set stored at key.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>从指定Key的集合中移除一个元素</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="member">member<para>要移除的元素</para></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of members that were removed from the set, not including non existing members.
+    /// <para>被移除的元素数量, 不包括不存在的元素</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SRem">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SRem">命令文档</see></para>
+    /// </remarks>
+    public long SRem(SharpValue key, SharpValue member, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SRem(key, member) | flags, cancellationToken);
+
+    /// <summary>
+    /// Remove the specified members from the set stored at key.
+    /// <para>Available since: 2.4.0</para>
+    /// <para>从指定Key的集合中移除多个元素</para>
+    /// <para>支持此命令的Redis版本, 2.4.0+</para>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="members">members<para>要移除的元素集合</para></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of members that were removed from the set, not including non existing members.
+    /// <para>被移除的元素数量, 不包括不存在的元素</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SRem">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SRem">命令文档</see></para>
+    /// </remarks>
+    public long SRem(SharpValue key, SharpValueSpan members, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SRem(key, members) | flags, cancellationToken);
+
+    /// <summary>
+    /// Returns the members of the set resulting from the union of all the given sets.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>获得指定Key集合的并集</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="key1"></param>
+    /// <param name="key2"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>A array with members of the resulting set.
+    /// <para>并集元素数组</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SUnion">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SUnion">命令文档</see></para>
+    /// </remarks>
+    public
+#if MODERN_NET
+    RedisResult[]?
 #else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallClassArray<byte[]>(SetCommands.SDiff(listKeys.ToArray()), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
+    RedisResult[]
 #endif
-                ;
-#endif
-        }
+    SUnion(SharpValue key1, SharpValue key2, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SUnion(key1, key2) | flags, cancellationToken);
 
-        /// <summary>
-        /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中差值集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SDiffBytes(string[] keys, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Returns the members of the set resulting from the union of all the given sets.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>获得指定Key集合的并集</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="keys"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>A array with members of the resulting set.
+    /// <para>并集元素数组</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SUnion">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SUnion">命令文档</see></para>
+    /// </remarks>
+    public
+#if MODERN_NET
+    RedisResult[]?
 #else
-        public byte[][] SDiffBytes(string[] keys, CancellationToken cancellationToken = default)
+    RedisResult[]
 #endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallClassArray<byte[]>(SetCommands.SDiff(keys), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    SUnion(SharpValueSpan keys, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SUnion(keys) | flags, cancellationToken);
 
-        /// <summary>
-        /// This command is equal to SDIFF, but instead of returning the resulting set, it is stored in destination.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>和SDiff一样, 不过不返回差值结果, 将结果存入destination指定的key中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="destination">destination key
-        /// <para>存入差值结果的Key</para>
-        /// </param>
-        /// <param name="key">key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting set.
-        /// <para>插入到destination key中的元素数量</para>
-        /// </returns>
-        public long SDiffStore(string destination, string key, string[] keys, CancellationToken cancellationToken = default)
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallNumber<long>(SetCommands.SDiffStore(destination, [key, .. keys]), ResultType.Int64, cancellationToken);
-#else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallNumber<long>(SetCommands.SDiffStore(destination, listKeys.ToArray()), ResultType.Int64, cancellationToken);
-#endif
-        }
+    /// <summary>
+    /// This command is equal to <b>[SUNION]</b>, but instead of returning the resulting set, it is stored in destination.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>该命令和 <b>[SUNION]</b> 类似, 只不过不返回并集结果, 而是将结果存储在指定的destination中</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="destination">destination key
+    /// <para>保存并集结果的Key</para>
+    /// </param>
+    /// <param name="key1"></param>
+    /// <param name="key2"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting set.
+    /// <para>并集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SUnionStore">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SUnionStore">命令文档</see></para>
+    /// </remarks>
+    public long SUnionStore(SharpValue destination, SharpValue key1, SharpValue key2, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SUnionStore(key1, key2, destination) | flags, cancellationToken);
 
-        /// <summary>
-        /// This command is equal to SDIFF, but instead of returning the resulting set, it is stored in destination.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>和SDiff一样, 不过不返回差值结果, 将结果存入destination指定的key中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="destination">destination key
-        /// <para>存入差值结果的Key</para>
-        /// </param>
-        /// <param name="key">key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting set.
-        /// <para>插入到destination key中的元素数量</para>
-        /// </returns>
-        public long SDiffStore(string destination, string key, string secondKey, CancellationToken cancellationToken = default)
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallNumber<long>(SetCommands.SDiffStore(destination, [key, secondKey]), ResultType.Int64, cancellationToken);
-#else
-            return base._call.CallNumber<long>(SetCommands.SDiffStore(destination, new string[] { key, secondKey }), ResultType.Int64, cancellationToken);
-#endif
-        }
+    /// <summary>
+    /// This command is equal to <b>[SUNION]</b>, but instead of returning the resulting set, it is stored in destination.
+    /// <para>Available since: 1.0.0</para>
+    /// <para>该命令和 <b>[SUNION]</b> 类似, 只不过不返回并集结果, 而是将结果存储在指定的destination中</para>
+    /// <para>支持此命令的Redis版本, 1.0.0+</para>
+    /// </summary>
+    /// <param name="destination">destination key
+    /// <para>保存并集结果的Key</para>
+    /// </param>
+    /// <param name="keys"></param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting set.
+    /// <para>并集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SUnionStore">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SUnionStore">命令文档</see></para>
+    /// </remarks>
+    public long SUnionStore(SharpValue destination, SharpValueSpan keys, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SUnionStore(keys, destination) | flags, cancellationToken);
 
-        /// <summary>
-        /// This command is equal to SDIFF, but instead of returning the resulting set, it is stored in destination.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>和SDiff一样, 不过不返回差值结果, 将结果存入destination指定的key中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="destination">destination key
-        /// <para>存入差值结果的Key</para>
-        /// </param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting set.
-        /// <para>插入到destination key中的元素数量</para>
-        /// </returns>
-        public long SDiffStore(string destination, string[] keys, CancellationToken cancellationToken = default)
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallNumber<long>(SetCommands.SDiffStore(destination, keys), ResultType.Int64, cancellationToken);
-        }
+    /// <summary>
+    /// SSCAN iterates members of Set types.
+    /// <para>Available since: 2.8.0</para>
+    /// <para>遍历Set里面的元素</para>
+    /// <para>支持此命令的Redis版本, 2.8.0+</para>
+    /// </summary>
+    /// <param name="key">Set key</param>
+    /// <param name="pattern">Member selection criteria
+    /// <para>筛选条件</para>
+    /// </param>
+    /// <param name="cursor">The cursor position to start at. default is 0
+    /// <para>开始遍历的游标, 默认为0</para>
+    /// </param>
+    /// <param name="count">The number of items returned this time, default is 10
+    /// <para>本次返回的条目个数, 默认为10个</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SScan">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SScan">命令文档</see></para>
+    /// </remarks>
+    public SetScanResult SScan(SharpValue key, SharpValue? pattern = null, ulong cursor = 0, uint count = 10, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+        => base.Invoke(SetCommands.SScan(key, cursor, pattern, count) | flags, cancellationToken);
 
-        /// <summary>
-        /// Returns the members of the set resulting from the intersection of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中交集集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>a list with the members of the resulting set.
-        /// <para>交集数组</para>
-        /// </returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SInter(string key, string[] keys, CancellationToken cancellationToken = default)
-#else
-        public string[] SInter(string key, string[] keys, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<string>(SetCommands.SInter([key, .. keys]), ResultType.Array | ResultType.String, cancellationToken)!;
-#else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallClassArray<string>(SetCommands.SInter(listKeys.ToArray()), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-#endif
-        }
+    /// <summary>
+    /// Returns the cardinality of the difference between the first set and all the successive sets. This is the count-only counterpart of SDIFF: it returns just the number of elements in the difference, not the members themselves.
+    /// <para>Available since: 8.10.0</para>
+    /// <para>返回第一个Key与后续所有Key的差集元素数量. 这是 <b>SDIFF</b> 的仅计数版本：它只返回差集中元素的数量，而不是元素本身的数量。</para>
+    /// <para>支持此命令的Redis版本, 8.10.0+</para>
+    /// </summary>
+    /// <param name="key1">key1</param>
+    /// <param name="key2">key2</param>
+    /// <param name="limit">Stop counting once the cardinality reaches limit. 0 (the default) means no limit.
+    /// <para>限制最多差集元素数量, 默认0, 表示不限制</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting difference.
+    /// <para>差集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SDiffCard">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SDiffCard">命令文档</see></para>
+    /// </remarks>
+    public long SDiffCard(SharpValue key1, SharpValue key2, ulong limit = 0, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SDiffCard(key1, key2, limit) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns the members of the set resulting from the intersection of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中交集集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>a list with the members of the resulting set.
-        /// <para>交集数组</para>
-        /// </returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SInter(string key, string secondKey, CancellationToken cancellationToken = default)
-#else
-        public string[] SInter(string key, string secondKey, CancellationToken cancellationToken = default)
-#endif
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<string>(SetCommands.SInter([key, secondKey]), ResultType.Array | ResultType.String, cancellationToken)!;
-#else
-            return base._call.CallClassArray<string>(SetCommands.SInter(new string[] { key, secondKey }), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-#endif
-        }
+    /// <summary>
+    /// Returns the cardinality of the difference between the first set and all the successive sets. This is the count-only counterpart of SDIFF: it returns just the number of elements in the difference, not the members themselves.
+    /// <para>Available since: 8.10.0</para>
+    /// <para>返回第一个Key与后续所有Key的差集元素数量. 这是 <b>SDIFF</b> 的仅计数版本：它只返回差集中元素的数量，而不是元素本身的数量。</para>
+    /// <para>支持此命令的Redis版本, 8.10.0+</para>
+    /// </summary>
+    /// <param name="keys">keys array</param>
+    /// <param name="limit">Stop counting once the cardinality reaches limit. 0 (the default) means no limit.
+    /// <para>限制最多差集元素数量, 默认0, 表示不限制</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting difference.
+    /// <para>差集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SDiffCard">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SDiffCard">命令文档</see></para>
+    /// </remarks>
+    public long SDiffCard(SharpValueSpan keys, ulong limit = 0, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SDiffCard(keys, limit) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns the members of the set resulting from the intersection of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中交集集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>a list with the members of the resulting set.
-        /// <para>交集数组</para>
-        /// </returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SInter(string[] keys, CancellationToken cancellationToken = default)
-#else
-        public string[] SInter(string[] keys, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallClassArray<string>(SetCommands.SInter(keys), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    /// <summary>
+    /// Returns the cardinality of the union of the given sets. This is the count-only counterpart of SUNION: it returns just the number of distinct elements in the union, not the members themselves.
+    /// <para>Available since: 8.10.0</para>
+    /// <para>返回第一个Key与后续所有Key的并集元素数量。这是 SUNION 的计数版本：它仅返回并集中不同元素的数量，而不是元素本身的数量。</para>
+    /// <para>支持此命令的Redis版本, 8.10.0+</para>
+    /// </summary>
+    /// <param name="key1">key1</param>
+    /// <param name="key2">key2</param>
+    /// <param name="approx">Return an approximate cardinality instead of an exact count.
+    /// <para>是否返回近似数量而非精确计数</para>
+    /// </param>
+    /// <param name="limit">Stop counting once the cardinality reaches limit. 0 (the default) means no limit.
+    /// <para>限制最多并集元素数量, 默认0, 表示不限制</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting union.
+    /// <para>并集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SUnionCard">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SUnionCard">命令文档</see></para>
+    /// </remarks>
+    public long SUnionCard(SharpValue key1, SharpValue key2, bool approx = false, ulong limit = 0, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SUnionCard(key1, key2, approx, limit) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns the members of the set resulting from the intersection of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中交集集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>a list with the members of the resulting set.
-        /// <para>交集数组</para>
-        /// </returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SInterBytes(string key, string[] keys, CancellationToken cancellationToken = default)
-#else
-        public byte[][] SInterBytes(string key, string[] keys, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<byte[]>(SetCommands.SInter([key, .. keys]), ResultType.Array | ResultType.Bytes, cancellationToken)!;
-#else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallClassArray<byte[]>(SetCommands.SInter(listKeys.ToArray()), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-#endif
-        }
+    /// <summary>
+    /// Returns the cardinality of the union of the given sets. This is the count-only counterpart of SUNION: it returns just the number of distinct elements in the union, not the members themselves.
+    /// <para>Available since: 8.10.0</para>
+    /// <para>返回第一个Key与后续所有Key的并集元素数量。这是 SUNION 的计数版本：它仅返回并集中不同元素的数量，而不是元素本身的数量。</para>
+    /// <para>支持此命令的Redis版本, 8.10.0+</para>
+    /// </summary>
+    /// <param name="keys">keys array</param>
+    /// <param name="approx">Return an approximate cardinality instead of an exact count.
+    /// <para>是否返回近似数量而非精确计数</para>
+    /// </param>
+    /// <param name="limit">Stop counting once the cardinality reaches limit. 0 (the default) means no limit.
+    /// <para>限制最多并集元素数量, 默认0, 表示不限制</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>The number of elements in the resulting union.
+    /// <para>并集元素数量</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SUnionCard">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SUnionCard">命令文档</see></para>
+    /// </remarks>
+    public long SUnionCard(SharpValueSpan keys, bool approx = false, ulong limit = 0, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SUnionCard(keys, approx, limit) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns the members of the set resulting from the intersection of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中交集集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>a list with the members of the resulting set.
-        /// <para>交集数组</para>
-        /// </returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SInterBytes(string key, string secondKey, CancellationToken cancellationToken = default)
-#else
-        public byte[][] SInterBytes(string key, string secondKey, CancellationToken cancellationToken = default)
-#endif
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<byte[]>(SetCommands.SInter([key, secondKey]), ResultType.Array | ResultType.Bytes, cancellationToken)!;
-#else
-            return base._call.CallClassArray<byte[]>(SetCommands.SInter(new string[] { key, secondKey }), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-#endif
-        }
+    /// <summary>
+    /// Add one or more members to a set, and optionally specify their expiration time or time to live (TTL). If the key doesn't exist, Redis creates a new set.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>将一个元素添加到指定Key的集合中, 并可选的设置失效时间. 如果Key不存在会创建</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合key</para>
+    /// </param>
+    /// <param name="member">member</param>
+    /// <param name="expiry">The due date can be passed as one of the five types: TimeSpan | DateTime | DateTimeOffset | long | int
+    /// <para>到期时间, 可以使用TimeSpan | DateTime | DateTimeOffset | long | int 五个类型之一</para>
+    /// </param>
+    /// <param name="expiryFlags">Effective time processing method, default indicates the number of seconds until expiration
+    /// <para>有效时间处理方式, 默认为有效期秒数</para>
+    /// </param>
+    /// <param name="when">Specifies the execution condition for the SADDEX command.
+    /// <para>指定 SADDEX 命令添加或更新 Set 成员时的执行条件</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>False if no member was added, updated, or removed. This includes the case where the MNX or MXX condition was not met.
+    /// <para>True if at least one member was added, updated, or removed.</para>
+    /// <para>False 表示没有添加、更新或删除任何成员。这包括未满足 MNX 或 MXX 条件的情况</para>
+    /// <para>如果至少添加、更新或删除了一名成员，则返回True</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SAddEx">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SAddEx">命令文档</see></para>
+    /// </remarks>
+    public bool SAddEx(
+        SharpValue key,
+        SharpValue member,
+        SharpExpiry? expiry = null,
+        ExpirationFlags expiryFlags = ExpirationFlags.EX,
+        AddExWhen when = AddExWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SAddEx(
+            key: key,
+            when: when,
+            expiry: expiry,
+            expiryFlags: expiryFlags,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns the members of the set resulting from the intersection of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回与第一个Key Set中交集集合</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>a list with the members of the resulting set.
-        /// <para>交集数组</para>
-        /// </returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SInterBytes(string[] keys, CancellationToken cancellationToken = default)
-#else
-        public byte[][] SInterBytes(string[] keys, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallClassArray<byte[]>(SetCommands.SInter(keys), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    /// <summary>
+    /// Add one or more members to a set, and optionally specify their expiration time or time to live (TTL). If the key doesn't exist, Redis creates a new set.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>将一个元素添加到指定Key的集合中, 并可选的设置失效时间. 如果Key不存在会创建</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合key</para>
+    /// </param>
+    /// <param name="members">The added member can support multiple options.
+    /// <para>添加的成员, 支持多个</para>
+    /// </param>
+    /// <param name="expiry">The due date can be passed as one of the five types: TimeSpan | DateTime | DateTimeOffset | long | int
+    /// <para>到期时间, 可以使用TimeSpan | DateTime | DateTimeOffset | long | int 五个类型之一</para>
+    /// </param>
+    /// <param name="expiryFlags">Effective time processing method, default indicates the number of seconds until expiration
+    /// <para>有效时间处理方式, 默认为有效期秒数</para>
+    /// </param>
+    /// <param name="when">Specifies the execution condition for the SADDEX command.
+    /// <para>指定 SADDEX 命令添加或更新 Set 成员时的执行条件</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>False if no member was added, updated, or removed. This includes the case where the MNX or MXX condition was not met.
+    /// <para>True if at least one member was added, updated, or removed.</para>
+    /// <para>False 表示没有添加、更新或删除任何成员。这包括未满足 MNX 或 MXX 条件的情况</para>
+    /// <para>如果至少添加、更新或删除了一名成员，则返回True</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SAddEx">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SAddEx">命令文档</see></para>
+    /// </remarks>
+    public bool SAddEx(
+        SharpValue key,
+        SharpValueSpan members,
+        SharpExpiry? expiry = null,
+        ExpirationFlags expiryFlags = ExpirationFlags.EX,
+        AddExWhen when = AddExWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SAddEx(
+            key: key,
+            when: when,
+            expiry: expiry,
+            expiryFlags: expiryFlags,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// This command is similar to SINTER, but instead of returning the result set, it returns just the cardinality of the result. Returns the cardinality of the set which would result from the intersection of all the given sets.
-        /// <para>Available since: 7.0.0</para>
-        /// <para>与SInter类似, 不过不返回交集结果, 只返回交集个数</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="limit">By default, the command calculates the cardinality of the intersection of all given sets
-        /// <para>默认为0, 表示计算所有交集数. 可以设定对应的次数</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting intersection.
-        /// <para>交集个数</para>
-        /// </returns>
-        public long SInterCard(string key, string[] keys, ulong limit = 0, CancellationToken cancellationToken = default)
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallNumber<long>(SetCommands.SInterCard([key, ..keys], limit), ResultType.Int64, cancellationToken);
-#else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallNumber<long>(SetCommands.SInterCard(listKeys.ToArray(), limit), ResultType.Int64, cancellationToken);
-#endif
-        }
+    /// <summary>
+    /// Specify an expiration (TTL or time to live), in seconds, for one member of a set. Redis removes each member from the set automatically when its TTL expires.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个成员设置指定秒的有效期. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to specify expiration for.
+    /// <para>要设置有效期的成员</para>
+    /// </param>
+    /// <param name="seconds">The time to live, in seconds. Each specified member is removed after this many seconds.
+    /// <para>剩余有效期, 单位: 秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpire">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpire">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult SExpire(
+        SharpValue key,
+        SharpValue member,
+        long seconds,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpire(
+            key: key,
+            seconds: seconds,
+            when: when,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// This command is similar to SINTER, but instead of returning the result set, it returns just the cardinality of the result. Returns the cardinality of the set which would result from the intersection of all the given sets.
-        /// <para>Available since: 7.0.0</para>
-        /// <para>与SInter类似, 不过不返回交集结果, 只返回交集个数</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="limit">By default, the command calculates the cardinality of the intersection of all given sets
-        /// <para>默认为0, 表示计算所有交集数. 可以设定对应的次数</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting intersection.
-        /// <para>交集个数</para>
-        /// </returns>
-        public long SInterCard(string key, string secondKey, ulong limit = 0, CancellationToken cancellationToken = default)
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallNumber<long>(SetCommands.SInterCard([key, secondKey], limit), ResultType.Int64, cancellationToken);
-#else
-            return base._call.CallNumber<long>(SetCommands.SInterCard(new string[] { key, secondKey }, limit), ResultType.Int64, cancellationToken);
-#endif
-        }
+    /// <summary>
+    /// Specify an expiration (TTL or time to live), in seconds, for one member of a set. Redis removes each member from the set automatically when its TTL expires.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个成员设置指定秒的有效期. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to specify expiration for.
+    /// <para>要设置有效期的成员</para>
+    /// </param>
+    /// <param name="seconds">The time to live, in seconds. Each specified member is removed after this many seconds.
+    /// <para>剩余有效期, 单位: 秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpire">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpire">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult SExpire(
+        SharpValue key,
+        SharpValue member,
+        TimeSpan seconds,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpire(
+            key: key,
+            seconds: (long)seconds.TotalSeconds,
+            when: when,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// This command is similar to SINTER, but instead of returning the result set, it returns just the cardinality of the result. Returns the cardinality of the set which would result from the intersection of all the given sets.
-        /// <para>Available since: 7.0.0</para>
-        /// <para>与SInter类似, 不过不返回交集结果, 只返回交集个数</para>
-        /// <para>支持此命令的Redis版本, 7.0.0+</para>
-        /// </summary>
-        /// <param name="keys">keys</param>
-        /// <param name="limit">By default, the command calculates the cardinality of the intersection of all given sets
-        /// <para>默认为0, 表示计算所有交集数. 可以设定对应的次数</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting intersection.
-        /// <para>交集个数</para>
-        /// </returns>
-        public long SInterCard(string[] keys, ulong limit = 0, CancellationToken cancellationToken = default)
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallNumber<long>(SetCommands.SInterCard(keys, limit), ResultType.Int64, cancellationToken);
-        }
+    /// <summary>
+    /// Specify an expiration (TTL or time to live), in seconds, for one or more members of a set. Redis removes each member from the set automatically when its TTL expires.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个或多个成员设置指定秒的有效期. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to specify expiration for.
+    /// <para>要设置有效期的成员, 可以指定多个</para>
+    /// </param>
+    /// <param name="seconds">The time to live, in seconds. Each specified member is removed after this many seconds.
+    /// <para>剩余有效期, 单位: 秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpire">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpire">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult[] SExpire(
+        SharpValue key,
+        SharpValueSpan members,
+        long seconds,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpire(
+            key: key,
+            seconds: seconds,
+            when: when,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// This command is equal to SINTER, but instead of returning the resulting set, it is stored in destination.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>与SINTER类似, 不过不返回交集结果, 只返回交集元素个数, 并将结果存入destination key中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="destination">destination key</param>
-        /// <param name="key">key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting set.
-        /// <para>交集元素个数</para>
-        /// </returns>
-        public long SInterStore(string destination, string key, string[] keys, CancellationToken cancellationToken = default)
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallNumber<long>(SetCommands.SInterStore(destination, [key, .. keys]), ResultType.Int64, cancellationToken);
-#else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallNumber<long>(SetCommands.SInterStore(destination, listKeys.ToArray()), ResultType.Int64, cancellationToken);
-#endif
-        }
+    /// <summary>
+    /// Specify an expiration (TTL or time to live), in seconds, for one or more members of a set. Redis removes each member from the set automatically when its TTL expires.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个或多个成员设置指定秒的有效期. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to specify expiration for.
+    /// <para>要设置有效期的成员, 可以指定多个</para>
+    /// </param>
+    /// <param name="seconds">The time to live, in seconds. Each specified member is removed after this many seconds.
+    /// <para>剩余有效期, 单位: 秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpire">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpire">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult[] SExpire(
+        SharpValue key,
+        SharpValueSpan members,
+        TimeSpan seconds,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpire(
+            key: key,
+            seconds: (long)seconds.TotalSeconds,
+            when: when,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// This command is equal to SINTER, but instead of returning the resulting set, it is stored in destination.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>与SINTER类似, 不过不返回交集结果, 只返回交集元素个数, 并将结果存入destination key中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="destination">destination key</param>
-        /// <param name="key">key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting set.
-        /// <para>交集元素个数</para>
-        /// </returns>
-        public long SInterStore(string destination, string key, string secondKey, CancellationToken cancellationToken = default)
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallNumber<long>(SetCommands.SInterStore(destination, [key, secondKey]), ResultType.Int64, cancellationToken);
-#else
-            return base._call.CallNumber<long>(SetCommands.SInterStore(destination, new string[] { key, secondKey }), ResultType.Int64, cancellationToken);
-#endif
-        }
+    /// <summary>
+    /// This command works like SEXPIRE, but instead of a TTL in seconds, it takes the absolute Unix time at which the members expire, in seconds since the Unix epoch.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个成员设置到期时间, 时间戳形式的. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to specify expiration for.
+    /// <para>要设置有效期的成员</para>
+    /// </param>
+    /// <param name="timestamp">The expiration time, as a Unix timestamp in seconds. A time in the past removes the members immediately.
+    /// <para>到期时间的时间戳形式, 单位: 秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpireAt">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpireAt">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult SExpireAt(
+        SharpValue key,
+        SharpValue member,
+        long timestamp,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpireAt(
+            key: key,
+            timestamp: timestamp,
+            when: when,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// This command is equal to SINTER, but instead of returning the resulting set, it is stored in destination.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>与SINTER类似, 不过不返回交集结果, 只返回交集元素个数, 并将结果存入destination key中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="destination">destination key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting set.
-        /// <para>交集元素个数</para>
-        /// </returns>
-        public long SInterStore(string destination, string[] keys, CancellationToken cancellationToken = default)
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallNumber<long>(SetCommands.SInterStore(destination, keys), ResultType.Int64, cancellationToken);
-        }
+    /// <summary>
+    /// This command works like SEXPIRE, but instead of a TTL in seconds, it takes the absolute Unix time at which the members expire, in seconds since the Unix epoch.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个成员设置到期时间, 时间戳形式的. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to specify expiration for.
+    /// <para>要设置有效期的成员</para>
+    /// </param>
+    /// <param name="timestamp">The expiration time, as a Unix timestamp in seconds. A time in the past removes the members immediately.
+    /// <para>到期时间的时间戳形式, 单位: 秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpireAt">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpireAt">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult SExpireAt(
+        SharpValue key,
+        SharpValue member,
+        DateTimeOffset timestamp,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpireAt(
+            key: key,
+            timestamp: timestamp.ToUnixTimeSeconds(),
+            when: when,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns if member is a member of the set stored at key.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>判断元素是否存在在指定Key的Set中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="member">member</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool SIsMember(string key, string member, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(SetCommands.SIsMember(key, member), "1", cancellationToken);
-        }
+    /// <summary>
+    /// This command works like SEXPIRE, but instead of a TTL in seconds, it takes the absolute Unix time at which the members expire, in seconds since the Unix epoch.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个或多个成员设置到期时间, 时间戳形式的. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to specify expiration for.
+    /// <para>要设置有效期的成员, 可以指定多个</para>
+    /// </param>
+    /// <param name="timestamp">The expiration time, as a Unix timestamp in seconds. A time in the past removes the members immediately.
+    /// <para>到期时间的时间戳形式, 单位: 秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpireAt">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpireAt">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult[] SExpireAt(
+        SharpValue key,
+        SharpValueSpan members,
+        long timestamp,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpireAt(
+            key: key,
+            timestamp: timestamp,
+            when: when,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns if member is a member of the set stored at key.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>判断元素是否存在在指定Key的Set中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="member">member</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool SIsMember(string key, byte[] member, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(SetCommands.SIsMember(key, member), "1", cancellationToken);
-        }
+    /// <summary>
+    /// This command works like SEXPIRE, but instead of a TTL in seconds, it takes the absolute Unix time at which the members expire, in seconds since the Unix epoch.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个或多个成员设置到期时间, 时间戳形式的. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to specify expiration for.
+    /// <para>要设置有效期的成员, 可以指定多个</para>
+    /// </param>
+    /// <param name="timestamp">The expiration time, as a Unix timestamp in seconds. A time in the past removes the members immediately.
+    /// <para>到期时间的时间戳形式, 单位: 秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpireAt">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpireAt">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult[] SExpireAt(
+        SharpValue key,
+        SharpValueSpan members,
+        DateTimeOffset timestamp,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpireAt(
+            key: key,
+            timestamp: timestamp.ToUnixTimeSeconds(),
+            when: when,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns all the members of the set value stored at key.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回指定Key的Set中的所有元素</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>all members of the set.
-        /// <para>所有元素数组</para>
-        /// </returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SMembers(string key, CancellationToken cancellationToken = default)
-#else
-        public string[] SMembers(string key, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallClassArray<string>(SetCommands.SMembers(key), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    /// <summary>
+    /// Returns the absolute Unix timestamp, in seconds since the Unix epoch
+    /// <para>Available since: 8.12.0</para>
+    /// <para>获得一个成员的到期时间的时间戳. 秒级时间戳</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to retrieve the expiration time for.
+    /// <para>要获得到期时间的成员</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>the expiration time, as a Unix timestamp in seconds.
+    /// <para>-2 if no such member exists in the set, or the key does not exist.</para>
+    /// <para>-1 if the member exists but has no associated expiration.</para>
+    /// <para>成员到期时间的秒级时间戳. -2: 成员不存在, -1: 成员用不失效.</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpireTime">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpireTime">命令文档</see></para>
+    /// </remarks>
+    public long SExpireTime(
+        SharpValue key,
+        SharpValue member,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpireTime(
+            key: key,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns all the members of the set value stored at key.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>返回指定Set中的所有元素</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>all members of the set.
-        /// <para>所有元素数组</para>
-        /// </returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SMembersBytes(string key, CancellationToken cancellationToken = default)
-#else
-        public byte[][] SMembersBytes(string key, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallClassArray<byte[]>(SetCommands.SMembers(key), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    /// <summary>
+    /// Returns the absolute Unix timestamp, in seconds since the Unix epoch
+    /// <para>Available since: 8.12.0</para>
+    /// <para>获得一个或多个成员的到期时间的时间戳. 秒级时间戳</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to retrieve the expiration time for.
+    /// <para>要获得到期时间的成员, 支持多个</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>the expiration time, as a Unix timestamp in seconds.
+    /// <para>-2 if no such member exists in the set, or the key does not exist.</para>
+    /// <para>-1 if the member exists but has no associated expiration.</para>
+    /// <para>成员到期时间的秒级时间戳. -2: 成员不存在, -1: 成员用不失效.</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SExpireTime">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SExpireTime">命令文档</see></para>
+    /// </remarks>
+    public long[] SExpireTime(
+        SharpValue key,
+        SharpValueSpan members,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SExpireTime(
+            key: key,
+            members: members) | flags, cancellationToken)!;
+    }
 
-        /// <summary>
-        /// Returns whether each member is a member of the set stored at key.
-        /// <para>Available since: 6.2.0</para>
-        /// <para>判断多个元素是否存在在指定Key的Set中</para>
-        /// <para>支持此命令的Redis版本, 6.2.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="members">members</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public bool[]? SMIsMember(string key, string[] members, CancellationToken cancellationToken = default)
-#else
-        public bool[] SMIsMember(string key, string[] members, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallConditionArray(SetCommands.SMIsMember(key, members), "1", cancellationToken);
-        }
+    /// <summary>
+    /// Removes the existing expiration from one or more set members. This turns each member from volatile (a member with an expiration) back into persistent (a member with no TTL, which never expires).
+    /// <para>Available since: 8.12.0</para>
+    /// <para>移除一个成员的失效时间, 使其变为用不过期</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合Key</para>
+    /// </param>
+    /// <param name="member">The set member to remove the expiration from
+    /// <para>要移除过期时间的成员</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPersist">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPersist">命令文档</see></para>
+    /// </remarks>
+    public SetPersistResult SPersist(
+        SharpValue key,
+        SharpValue member,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPersist(
+            key: key,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Returns whether each member is a member of the set stored at key.
-        /// <para>Available since: 6.2.0</para>
-        /// <para>判断多个元素是否存在在指定Key的Set中</para>
-        /// <para>支持此命令的Redis版本, 6.2.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="members">members</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public bool[]? SMIsMember(string key, byte[][] members, CancellationToken cancellationToken = default)
-#else
-        public bool[] SMIsMember(string key, byte[][] members, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallConditionArray(SetCommands.SMIsMember(key, members), "1", cancellationToken);
-        }
+    /// <summary>
+    /// Removes the existing expiration from one or more set members. This turns each member from volatile (a member with an expiration) back into persistent (a member with no TTL, which never expires).
+    /// <para>Available since: 8.12.0</para>
+    /// <para>移除一个或多个成员的失效时间, 使其变为用不过期</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合Key</para>
+    /// </param>
+    /// <param name="members">The set members to remove the expiration from
+    /// <para>要移除过期时间的成员, 支持多个</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPersist">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPersist">命令文档</see></para>
+    /// </remarks>
+    public SetPersistResult[] SPersist(
+        SharpValue key,
+        SharpValueSpan members,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPersist(
+            key: key,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Move member from the set at source to the set at destination. This operation is atomic. In every given moment the element will appear to be a member of source or destination for other clients.
-        /// <para>If the source set does not exist or does not contain the specified element, no operation is performed and 0 is returned. Otherwise, the element is removed from the source set and added to the destination set. When the specified element already exists in the destination set, it is only removed from the source set.</para>
-        /// <para>Available since: 1.0.0</para>
-        /// <para>将指定的元素从source中移动到destination中</para>
-        /// <para>如果destination已经存在指定的元素, 则只会在source中进行移除</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="source">source key</param>
-        /// <param name="destination">destination key</param>
-        /// <param name="member">member</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool SMove(string source, string destination, string member, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(SetCommands.SMove(source, destination, member), "1", cancellationToken);
-        }
+    /// <summary>
+    /// This command works like SEXPIRE, but the expiration of a member is specified in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个成员设置指定毫秒的有效期. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to specify expiration for.
+    /// <para>要设置有效期的成员</para>
+    /// </param>
+    /// <param name="milliseconds">The time to live, in milliseconds. Each specified member is removed after this many milliseconds.
+    /// <para>剩余有效期, 单位: 毫秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpire">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpire">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult SPExpire(
+        SharpValue key,
+        SharpValue member,
+        long milliseconds,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpire(
+            key: key,
+            milliseconds: milliseconds,
+            when: when,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Move member from the set at source to the set at destination. This operation is atomic. In every given moment the element will appear to be a member of source or destination for other clients.
-        /// <para>If the source set does not exist or does not contain the specified element, no operation is performed and 0 is returned. Otherwise, the element is removed from the source set and added to the destination set. When the specified element already exists in the destination set, it is only removed from the source set.</para>
-        /// <para>Available since: 1.0.0</para>
-        /// <para>将指定的元素从source中移动到destination中</para>
-        /// <para>如果destination已经存在指定的元素, 则只会在source中进行移除</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="source">source key</param>
-        /// <param name="destination">destination key</param>
-        /// <param name="member">member</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-        public bool SMove(string source, string destination, byte[] member, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallCondition(SetCommands.SMove(source, destination, member), "1", cancellationToken);
-        }
+    /// <summary>
+    /// This command works like SEXPIRE, but the expiration of a member is specified in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个成员设置指定毫秒的有效期. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to specify expiration for.
+    /// <para>要设置有效期的成员</para>
+    /// </param>
+    /// <param name="milliseconds">The time to live, in milliseconds. Each specified member is removed after this many milliseconds.
+    /// <para>剩余有效期, 单位: 毫秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpire">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpire">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult SPExpire(
+        SharpValue key,
+        SharpValue member,
+        TimeSpan milliseconds,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpire(
+            key: key,
+            milliseconds: (long)milliseconds.TotalMilliseconds,
+            when: when,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Removes and returns one random members from the set value store at key.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>从指定Key的Set集合中随机删除并返回一个元素</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string? SPop(string key, CancellationToken cancellationToken = default)
-#else
-        public string SPop(string key, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallString(SetCommands.SPop(key, 1), cancellationToken);
-        }
+    /// <summary>
+    /// This command works like SEXPIRE, but the expiration of a member is specified in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个或多个成员设置指定毫秒的有效期. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to specify expiration for.
+    /// <para>要设置有效期的成员, 支持多个</para>
+    /// </param>
+    /// <param name="milliseconds">The time to live, in milliseconds. Each specified member is removed after this many milliseconds.
+    /// <para>剩余有效期, 单位: 毫秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpire">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpire">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult[] SPExpire(
+        SharpValue key,
+        SharpValueSpan members,
+        long milliseconds,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpire(
+            key: key,
+            milliseconds: milliseconds,
+            when: when,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Removes and returns one or more random members from the set value store at key.
-        /// <para>Available since: 3.2.0</para>
-        /// <para>从指定Key的Set集合中随机删除并返回一个或多个元素</para>
-        /// <para>支持此命令的Redis版本, 3.2.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="count">count
-        /// <para>要删除并返回的元素个数</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SPop(string key, ulong count, CancellationToken cancellationToken = default)
-#else
-        public string[] SPop(string key, ulong count, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallClassArray<string>(SetCommands.SPop(key, count), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    /// <summary>
+    /// This command works like SEXPIRE, but the expiration of a member is specified in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个或多个成员设置指定毫秒的有效期. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to specify expiration for.
+    /// <para>要设置有效期的成员, 支持多个</para>
+    /// </param>
+    /// <param name="milliseconds">The time to live, in milliseconds. Each specified member is removed after this many milliseconds.
+    /// <para>剩余有效期, 单位: 毫秒. 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpire">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpire">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult[] SPExpire(
+        SharpValue key,
+        SharpValueSpan members,
+        TimeSpan milliseconds,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpire(
+            key: key,
+            milliseconds: (long)milliseconds.TotalMilliseconds,
+            when: when,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Removes and returns one random members from the set value store at key.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>从指定Key的Set集合中随机删除并返回一个元素</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[]? SPopBytes(string key, CancellationToken cancellationToken = default)
-#else
-        public byte[] SPopBytes(string key, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallBytes(SetCommands.SPop(key, 1), cancellationToken);
-        }
+    /// <summary>
+    /// This command works like SEXPIREAT, but the absolute Unix time at which the members expire is specified in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个成员设置到期时间, 毫秒级时间戳形式的. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to specify expiration for.
+    /// <para>要设置有效期的成员</para>
+    /// </param>
+    /// <param name="timestamp">The expiration time, as a Unix timestamp in milliseconds. A time in the past removes the members immediately.
+    /// <para>到期时间的时间戳形式, 单位: 毫秒, 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpireAt">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpireAt">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult SPExpireAt(
+        SharpValue key,
+        SharpValue member,
+        long timestamp,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpireAt(
+            key: key,
+            timestamp: timestamp,
+            when: when,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Removes and returns one or more random members from the set value store at key.
-        /// <para>Available since: 3.2.0</para>
-        /// <para>从指定Key的Set集合中随机删除并返回一个或多个元素</para>
-        /// <para>支持此命令的Redis版本, 3.2.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="count">count
-        /// <para>要删除并返回的元素个数</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SPopBytes(string key, ulong count, CancellationToken cancellationToken = default)
-#else
-        public byte[][] SPopBytes(string key, ulong count, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallClassArray<byte[]>(SetCommands.SPop(key, count), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    /// <summary>
+    /// This command works like SEXPIREAT, but the absolute Unix time at which the members expire is specified in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个成员设置到期时间, 毫秒级时间戳形式的. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to specify expiration for.
+    /// <para>要设置有效期的成员</para>
+    /// </param>
+    /// <param name="timestamp">The expiration time, as a Unix timestamp in milliseconds. A time in the past removes the members immediately.
+    /// <para>到期时间的时间戳形式, 单位: 毫秒, 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpireAt">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpireAt">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult SPExpireAt(
+        SharpValue key,
+        SharpValue member,
+        DateTimeOffset timestamp,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpireAt(
+            key: key,
+            timestamp: timestamp.ToUnixTimeMilliseconds(),
+            when: when,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// return a random element from the set value stored at key.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>从指定Key的Set集合中随机获得一个元素</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string? SRandMember(string key, CancellationToken cancellationToken = default)
-#else
-        public string SRandMember(string key, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallString(SetCommands.SRandMember(key, 0), cancellationToken);
-        }
+    /// <summary>
+    /// This command works like SEXPIREAT, but the absolute Unix time at which the members expire is specified in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个或多个成员设置到期时间, 毫秒级时间戳形式的. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to specify expiration for.
+    /// <para>要设置有效期的成员, 支持多个</para>
+    /// </param>
+    /// <param name="timestamp">The expiration time, as a Unix timestamp in milliseconds. A time in the past removes the members immediately.
+    /// <para>到期时间的时间戳形式, 单位: 毫秒, 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpireAt">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpireAt">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult[] SPExpireAt(
+        SharpValue key,
+        SharpValueSpan members,
+        long timestamp,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpireAt(
+            key: key,
+            timestamp: timestamp,
+            when: when,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// return one or more random element from the set value stored at key.
-        /// <para>Available since: 2.6.0</para>
-        /// <para>从指定Key的Set集合中随机获得一个或多个元素</para>
-        /// <para>支持此命令的Redis版本, 2.6.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="count">When the number is positive, the returned elements are not repeated, and if count is greater than the total, the entire Set is returned
-        /// <para>When negative, the returned element may be duplicate</para>
-        /// <para>为正数, 返回的元素不会重复, 且如果count大于Set里面的总数, 则将返回整个Set</para>
-        /// <para>为负数, 返回的元素可能会存在重复</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SRandMember(string key, long count, CancellationToken cancellationToken = default)
-#else
-        public string[] SRandMember(string key, long count, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (count == 0) throw new RedisException("Count cannot be 0");
-            return base._call.CallClassArray<string>(SetCommands.SRandMember(key, count), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-            !
-#endif
-            ;
-        }
+    /// <summary>
+    /// This command works like SEXPIREAT, but the absolute Unix time at which the members expire is specified in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>给Set集合中的一个或多个成员设置到期时间, 毫秒级时间戳形式的. 到期后成员会自动删除</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to specify expiration for.
+    /// <para>要设置有效期的成员, 支持多个</para>
+    /// </param>
+    /// <param name="timestamp">The expiration time, as a Unix timestamp in milliseconds. A time in the past removes the members immediately.
+    /// <para>到期时间的时间戳形式, 单位: 毫秒, 到期后成员会删除</para>
+    /// </param>
+    /// <param name="when">Enum of conditions for setting the validity period of members in SET
+    /// <para>Set中成员失效时间设置条件枚举</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns></returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpireAt">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpireAt">命令文档</see></para>
+    /// </remarks>
+    public SetExpireResult[] SPExpireAt(
+        SharpValue key,
+        SharpValueSpan members,
+        DateTimeOffset timestamp,
+        ExpirationWhen when = ExpirationWhen.None,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpireAt(
+            key: key,
+            timestamp: timestamp.ToUnixTimeMilliseconds(),
+            when: when,
+            members: members) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// return a random element from the set value stored at key.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>从指定Key的Set集合中随机获得一个元素</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[]? SRandMemberBytes(string key, CancellationToken cancellationToken = default)
-#else
-        public byte[] SRandMemberBytes(string key, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallBytes(SetCommands.SRandMember(key, 0), cancellationToken);
-        }
+    /// <summary>
+    /// This command works like SEXPIRETIME, but returns the absolute Unix expiration timestamp of each member in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>获得一个成员的到期时间的时间戳. 毫秒级时间戳</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to retrieve the expiration time for.
+    /// <para>要获得到期时间的成员</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>the expiration time, as a Unix timestamp in seconds.
+    /// <para>-2 if no such member exists in the set, or the key does not exist.</para>
+    /// <para>-1 if the member exists but has no associated expiration.</para>
+    /// <para>成员到期时间的毫秒级时间戳. -2: 成员不存在, -1: 成员用不失效.</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpireTime">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpireTime">命令文档</see></para>
+    /// </remarks>
+    public long SPExpireTime(
+        SharpValue key,
+        SharpValue member,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpireTime(
+            key: key,
+            member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// return one or more random element from the set value stored at key.
-        /// <para>Available since: 2.6.0</para>
-        /// <para>从指定Key的Set集合中随机获得一个或多个元素</para>
-        /// <para>支持此命令的Redis版本, 2.6.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="count">When the number is positive, the returned elements are not repeated, and if count is greater than the total, the entire Set is returned
-        /// <para>When negative, the returned element may be duplicate</para>
-        /// <para>为正数, 返回的元素不会重复, 且如果count大于Set里面的总数, 则将返回整个Set</para>
-        /// <para>为负数, 返回的元素可能会存在重复</para>
-        /// </param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SRandMemberBytes(string key, long count, CancellationToken cancellationToken = default)
-#else
-        public byte[][] SRandMemberBytes(string key, long count, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (count == 0) throw new RedisException("Count cannot be 0");
-            return base._call.CallClassArray<byte[]>(SetCommands.SRandMember(key, count), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
+    /// <summary>
+    /// This command works like SEXPIRETIME, but returns the absolute Unix expiration timestamp of each member in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>获得一个或多个成员的到期时间的时间戳. 毫秒级时间戳</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to retrieve the expiration time for.
+    /// <para>要获得到期时间的成员, 支持多个</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>the expiration time, as a Unix timestamp in seconds.
+    /// <para>-2 if no such member exists in the set, or the key does not exist.</para>
+    /// <para>-1 if the member exists but has no associated expiration.</para>
+    /// <para>成员到期时间的毫秒级时间戳. -2: 成员不存在, -1: 成员用不失效.</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPExpireTime">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPExpireTime">命令文档</see></para>
+    /// </remarks>
+    public long[] SPExpireTime(
+        SharpValue key,
+        SharpValueSpan members,
+        CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPExpireTime(
+            key: key,
+            members: members) | flags, cancellationToken)!;
+    }
 
-        /// <summary>
-        /// Remove the specified members from the set stored at key. Specified members that are not a member of this set are ignored. If key does not exist, it is treated as an empty set and this command returns 0.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>从指定Set集合中删除指定的元素</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="member">member</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of members that were removed from the set, not including non existing members.
-        /// <para>成功移除的元素数量. 不存在在Set集合中的元素不计数</para>
-        /// </returns>
-        public long SRem(string key, string member, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallNumber<long>(SetCommands.SRem(key, member), ResultType.Int64, cancellationToken);
-        }
+    /// <summary>
+    /// Returns the remaining TTL (time to live), in seconds, of one set member that have an expiration. Use it to check how many more seconds a member stays in the set.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>获得一个成员剩余的有效期. 剩余有效期的秒数</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to retrieve the remaining TTL for.
+    /// <para>要获得剩余有效期的成员</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>the TTL in seconds.
+    /// <para>-2 if no such member exists in the set, or the key does not exist.</para>
+    /// <para>-1 if the member exists but has no associated expiration.</para>
+    /// <para>剩余有效期秒数. 如果不存在Key或成员返回-2, 如果用不过期返回-1</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/STtl">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/STtl">命令文档</see></para>
+    /// </remarks>
+    public long STtl(SharpValue key, SharpValue member, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.STtl(key: key, member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Remove the specified members from the set stored at key. Specified members that are not a member of this set are ignored. If key does not exist, it is treated as an empty set and this command returns 0.
-        /// <para>Available since: 2.4.0</para>
-        /// <para>从指定Set集合中删除指定的元素</para>
-        /// <para>支持此命令的Redis版本, 2.4.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="members">members</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of members that were removed from the set, not including non existing members.
-        /// <para>成功移除的元素数量. 不存在在Set集合中的元素不计数</para>
-        /// </returns>
-        public long SRem(string key, string[] members, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallNumber<long>(SetCommands.SRem(key, members), ResultType.Int64, cancellationToken);
-        }
+    /// <summary>
+    /// Returns the remaining TTL (time to live), in seconds, of one or more set members that have an expiration. Use it to check how many more seconds a member stays in the set.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>获得一个或多个成员剩余的有效期. 剩余有效期的秒数</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to retrieve the remaining TTL for.
+    /// <para>要获得剩余有效期的成员, 支持多个</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>the TTL in seconds.
+    /// <para>-2 if no such member exists in the set, or the key does not exist.</para>
+    /// <para>-1 if the member exists but has no associated expiration.</para>
+    /// <para>剩余有效期秒数. 如果不存在Key或成员返回-2, 如果用不过期返回-1</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/STtl">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/STtl">命令文档</see></para>
+    /// </remarks>
+    public long[] STtl(SharpValue key, SharpValueSpan members, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.STtl(key: key, members: members) | flags, cancellationToken)!;
+    }
 
-        /// <summary>
-        /// Remove the specified members from the set stored at key. Specified members that are not a member of this set are ignored. If key does not exist, it is treated as an empty set and this command returns 0.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>从指定Set集合中删除指定的元素</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="member">member</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of members that were removed from the set, not including non existing members.
-        /// <para>成功移除的元素数量. 不存在在Set集合中的元素不计数</para>
-        /// </returns>
-        public long SRem(string key, byte[] member, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallNumber<long>(SetCommands.SRem<byte[]>(key, member), ResultType.Int64, cancellationToken);
-        }
+    /// <summary>
+    /// This command works like STTL, but returns the remaining TTL (time to live) of each member in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>获得一个成员剩余的有效期. 剩余有效期的毫秒数</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="member">The set member to retrieve the remaining TTL for.
+    /// <para>要获得剩余有效期的成员</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>the TTL in milliseconds.
+    /// <para>-2 if no such member exists in the set, or the key does not exist.</para>
+    /// <para>-1 if the member exists but has no associated expiration.</para>
+    /// <para>剩余有效期毫秒数. 如果不存在Key或成员返回-2, 如果用不过期返回-1</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPTtl">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPTtl">命令文档</see></para>
+    /// </remarks>
+    public long SPTtl(SharpValue key, SharpValue member, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPTtl(key: key, member: member) | flags, cancellationToken);
+    }
 
-        /// <summary>
-        /// Remove the specified members from the set stored at key. Specified members that are not a member of this set are ignored. If key does not exist, it is treated as an empty set and this command returns 0.
-        /// <para>Available since: 2.4.0</para>
-        /// <para>从指定Set集合中删除指定的元素</para>
-        /// <para>支持此命令的Redis版本, 2.4.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="members">members</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of members that were removed from the set, not including non existing members.
-        /// <para>成功移除的元素数量. 不存在在Set集合中的元素不计数</para>
-        /// </returns>
-        public long SRem(string key, byte[][] members, CancellationToken cancellationToken = default)
-        {
-            return base._call.CallNumber<long>(SetCommands.SRem(key, members), ResultType.Int64, cancellationToken);
-        }
-
-        /// <summary>
-        /// Returns the members of the set resulting from the union of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>获得指定Key的Set集合的并集</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SUnion(string key, string[] keys, CancellationToken cancellationToken = default)
-#else
-        public string[] SUnion(string key, string[] keys, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<string>(SetCommands.SUnion([key, .. keys]), ResultType.Array | ResultType.String, cancellationToken)!;
-#else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallClassArray<string>(SetCommands.SUnion(listKeys.ToArray()), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-#endif
-        }
-
-        /// <summary>
-        /// Returns the members of the set resulting from the union of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>获得指定Key的Set集合的并集</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SUnion(string key, string secondKey, CancellationToken cancellationToken = default)
-#else
-        public string[] SUnion(string key, string secondKey, CancellationToken cancellationToken = default)
-#endif
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<string>(SetCommands.SUnion([key, secondKey]), ResultType.Array | ResultType.String, cancellationToken)!;
-#else
-            return base._call.CallClassArray<string>(SetCommands.SUnion(new string[] { key, secondKey }), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-#endif
-        }
-
-        /// <summary>
-        /// Returns the members of the set resulting from the union of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>获得指定Key的Set集合的并集</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public string[]? SUnion(string[] keys, CancellationToken cancellationToken = default)
-#else
-        public string[] SUnion(string[] keys, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallClassArray<string>(SetCommands.SUnion(keys), ResultType.Array | ResultType.String, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
-
-        /// <summary>
-        /// Returns the members of the set resulting from the union of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>获得指定Key的Set集合的并集</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SUnionBytes(string key, string[] keys, CancellationToken cancellationToken = default)
-#else
-        public byte[][] SUnionBytes(string key, string[] keys, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<byte[]>(SetCommands.SUnion([key, .. keys]), ResultType.Array | ResultType.Bytes, cancellationToken)!;
-#else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallClassArray<byte[]>(SetCommands.SUnion(listKeys.ToArray()), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-#endif
-        }
-
-        /// <summary>
-        /// Returns the members of the set resulting from the union of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>获得指定Key的Set集合的并集</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SUnionBytes(string key, string secondKey, CancellationToken cancellationToken = default)
-#else
-        public byte[][] SUnionBytes(string key, string secondKey, CancellationToken cancellationToken = default)
-#endif
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallClassArray<byte[]>(SetCommands.SUnion([key, secondKey]), ResultType.Array | ResultType.Bytes, cancellationToken)!;
-#else
-            return base._call.CallClassArray<byte[]>(SetCommands.SUnion(new string[] { key, secondKey }), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-#endif
-        }
-
-        /// <summary>
-        /// Returns the members of the set resulting from the union of all the given sets.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>获得指定Key的Set集合的并集</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public byte[][]? SUnionBytes(string[] keys, CancellationToken cancellationToken = default)
-#else
-        public byte[][] SUnionBytes(string[] keys, CancellationToken cancellationToken = default)
-#endif
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallClassArray<byte[]>(SetCommands.SUnion(keys), ResultType.Array | ResultType.Bytes, cancellationToken)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                !
-#endif
-                ;
-        }
-
-        /// <summary>
-        /// This command is equal to SUNION, but instead of returning the resulting set, it is stored in destination.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>和[SUNION]一样, 不过不返回并集结果, 只返回并集元素数量, 并将结果设置到destination中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="destination">destination key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting set.
-        /// <para>并集元素个数</para>
-        /// </returns>
-        public long SUnionStore(string destination, string key, string[] keys, CancellationToken cancellationToken = default)
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-#if NET8_0_OR_GREATER
-            return base._call.CallNumber<long>(SetCommands.SUnionStore(destination, [key, .. keys]), ResultType.Int64, cancellationToken);
-#else
-            var listKeys = new List<string>(keys.Length + 1) { key };
-            listKeys.AddRange(keys);
-            return base._call.CallNumber<long>(SetCommands.SUnionStore(destination, listKeys.ToArray()), ResultType.Int64, cancellationToken);
-#endif
-        }
-
-        /// <summary>
-        /// This command is equal to SUNION, but instead of returning the resulting set, it is stored in destination.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>和[SUNION]一样, 不过不返回并集结果, 只返回并集元素数量, 并将结果设置到destination中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="destination">destination key</param>
-        /// <param name="secondKey">second key</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting set.
-        /// <para>并集元素个数</para>
-        /// </returns>
-        public long SUnionStore(string destination, string key, string secondKey, CancellationToken cancellationToken = default)
-        {
-#if NET8_0_OR_GREATER
-            return base._call.CallNumber<long>(SetCommands.SUnionStore(destination, [key, secondKey]), ResultType.Int64, cancellationToken);
-#else
-            return base._call.CallNumber<long>(SetCommands.SUnionStore(destination, new string[] { key, secondKey }), ResultType.Int64, cancellationToken);
-#endif
-        }
-
-        /// <summary>
-        /// This command is equal to SUNION, but instead of returning the resulting set, it is stored in destination.
-        /// <para>Available since: 1.0.0</para>
-        /// <para>和[SUNION]一样, 不过不返回并集结果, 只返回并集元素数量, 并将结果设置到destination中</para>
-        /// <para>支持此命令的Redis版本, 1.0.0+</para>
-        /// </summary>
-        /// <param name="destination">destination key</param>
-        /// <param name="keys">keys</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para>
-        /// </param>
-        /// <returns>the number of elements in the resulting set.
-        /// <para>并集元素个数</para>
-        /// </returns>
-        public long SUnionStore(string destination, string[] keys, CancellationToken cancellationToken = default)
-        {
-            if (keys is null || keys.Length == 0) throw new RedisException("keys cannot be empty");
-            return base._call.CallNumber<long>(SetCommands.SUnionStore(destination, keys), ResultType.Int64, cancellationToken);
-        }
-
-        /// <summary>
-        /// Iterates set
-        /// <para>Available since: 2.8.0</para>
-        /// <para>迭代Set</para>
-        /// <para>支持此命令的Redis版本, 2.8.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="cursor">cursor</param>
-        /// <param name="pattern">pattern</param>
-        /// <param name="count">count</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para></param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public ScanValue<string[]>? SScan(string key, long cursor, string? pattern = null, ulong? count = null, CancellationToken cancellationToken = default)
-#else
-        public ScanValue<string[]> SScan(string key, long cursor, string pattern = null, ulong? count = null, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallScan<string[]>(SetCommands.SScan(key, cursor, pattern, count), ResultType.Scan | ResultType.Array | ResultType.String, cancellationToken);
-        }
-
-        /// <summary>
-        /// Iterates set
-        /// <para>Available since: 2.8.0</para>
-        /// <para>迭代Set</para>
-        /// <para>支持此命令的Redis版本, 2.8.0+</para>
-        /// </summary>
-        /// <param name="key">Set key</param>
-        /// <param name="cursor">cursor</param>
-        /// <param name="pattern">pattern</param>
-        /// <param name="count">count</param>
-        /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
-        /// <para>取消Token, 有效值会覆盖系统默认的</para></param>
-        /// <returns></returns>
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        public ScanValue<byte[][]>? SScanBytes(string key, long cursor, string? pattern = null, ulong? count = null, CancellationToken cancellationToken = default)
-#else
-        public ScanValue<byte[][]> SScanBytes(string key, long cursor, string pattern = null, ulong? count = null, CancellationToken cancellationToken = default)
-#endif
-        {
-            return base._call.CallScan<byte[][]>(SetCommands.SScan(key, cursor, pattern, count), ResultType.Scan | ResultType.Array | ResultType.Bytes, cancellationToken);
-        }
+    /// <summary>
+    /// This command works like STTL, but returns the remaining TTL (time to live) of each member in milliseconds instead of seconds.
+    /// <para>Available since: 8.12.0</para>
+    /// <para>获得一个或多个成员剩余的有效期. 剩余有效期的毫秒数</para>
+    /// <para>支持此命令的Redis版本, 8.12.0+</para>
+    /// </summary>
+    /// <param name="key">The name of the key that holds the set.
+    /// <para>Set集合的Key</para>
+    /// </param>
+    /// <param name="members">The set members to retrieve the remaining TTL for.
+    /// <para>要获得剩余有效期的成员, 支持多个</para>
+    /// </param>
+    /// <param name="flags">The flags to use for this operation. In general, no settings are required
+    /// <para>此次操作使用的行为标记, 一般情况下无需设置</para>
+    /// </param>
+    /// <param name="cancellationToken">Propagates notification that operations should be canceled. The valid value overrides the system Token
+    /// <para>取消Token, 有效值会覆盖系统默认的</para>
+    /// </param>
+    /// <returns>the TTL in milliseconds.
+    /// <para>-2 if no such member exists in the set, or the key does not exist.</para>
+    /// <para>-1 if the member exists but has no associated expiration.</para>
+    /// <para>剩余有效期毫秒数. 如果不存在Key或成员返回-2, 如果用不过期返回-1</para>
+    /// </returns>
+    /// <remarks>
+    /// <see href="https://redis.io/commands/SPTtl">Command documentation</see>
+    /// <para><see href="https://redis.io/commands/SPTtl">命令文档</see></para>
+    /// </remarks>
+    public long[] SPTtl(SharpValue key, SharpValueSpan members, CommandFlags flags = CommandFlags.None, CancellationToken cancellationToken = default)
+    {
+        return base.Invoke(SetCommands.SPTtl(key: key, members: members) | flags, cancellationToken)!;
     }
 }

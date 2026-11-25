@@ -1,237 +1,270 @@
-﻿using SharpRedis.Models;
+﻿using SharpRedis.Entities.Command;
+using SharpRedis.Enums;
+using SharpRedis.Extensions;
+using System;
+using System.Collections.Generic;
+using static SharpRedis.RedisScript;
 
-namespace SharpRedis.Commands
+namespace SharpRedis.Commands;
+
+internal static class ScriptCommands
 {
-    internal static class ScriptCommands
+    private readonly static SharpValue _eval = new("EVAL", CommandItemCategory.Command);
+    private readonly static SharpValue _eval_ro = new("EVAL_RO", CommandItemCategory.Command);
+    private readonly static SharpValue _evalsha = new("EVALSHA", CommandItemCategory.Command);
+    private readonly static SharpValue _evalsha_ro = new("EVALSHA_RO", CommandItemCategory.Command);
+    private readonly static SharpValue _script = new("SCRIPT", CommandItemCategory.Command);
+    private readonly static SharpValue _load = new("LOAD", CommandItemCategory.Command);
+    private readonly static SharpValue _debug = new("DEBUG", CommandItemCategory.Command);
+    private readonly static SharpValue _exists = new("EXISTS", CommandItemCategory.Command);
+    private readonly static SharpValue _flush = new("FLUSH", CommandItemCategory.Command);
+    private readonly static SharpValue _kill = new("KILL", CommandItemCategory.Command);
+
+    internal static CommandPacket Eval(string script, ReadOnlySpan<string> keys, SharpValueSpan args)
     {
-        #region Script
-        internal static CommandPacket ScriptFlush(FlushingMode mode)
+        var command = new CommandPacket(ScriptCommands._eval, CommandMode.LuaScript)
+            .WriteArguments(script)
+            .WriteArguments(keys.Length.ToBytes());
+        foreach (var key in keys)
         {
-            return new CommandPacket("SCRIPT", CommandMode.Script)
-                .WriteArg("FLUSH")
-                .WriteArg(mode == FlushingMode.Async, "ASYNC")
-                .WriteArg(mode == FlushingMode.Sync, "SYNC");
+            _ = command.WriteKeys(key);
         }
-
-        internal static CommandPacket ScriptLoad(string script)
+        foreach (var arg in args)
         {
-            if (string.IsNullOrEmpty(script)) throw new RedisException("The loaded script cannot be empty or null");
-            return new CommandPacket("SCRIPT", CommandMode.Script)
-                .WriteArg("LOAD")
-                .WriteArg(script);
+            _ = command.WriteArguments(arg);
         }
+        return command;
+    }
 
-        internal static CommandPacket ScriptKill()
-        {
-            return new CommandPacket("SCRIPT", CommandMode.Script)
-                .WriteArg("KILL");
-        }
-
-        internal static CommandPacket ScriptExists(params string[] shaArray)
-        {
-            if (shaArray is null || shaArray.Length == 0) throw new RedisException("The SHA1 value cannot be empty");
-            return new CommandPacket("SCRIPT", CommandMode.Script)
-                .WriteArg("EXISTS")
-                .WriteArgs(shaArray);
-        }
-
-        internal static CommandPacket ScriptDebug(ScriptDebugMode mode)
-        {
-            return new CommandPacket("SCRIPT", CommandMode.Script)
-                .WriteArg("DEBUG")
-                .WriteArg(mode == ScriptDebugMode.Sync, "SYNC")
-                .WriteArg(mode == ScriptDebugMode.Yes, "YES")
-                .WriteArg(mode == ScriptDebugMode.No, "NO");
-        }
-
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket EvalSHA(string sha1, string[]? keys, string[]? args)
+#if MODERN_NET
+    internal static CommandPacket Eval(string script, ICollection<string>? keys, SharpValueSpan args)
 #else
-        internal static CommandPacket EvalSHA(string sha1, string[] keys, string[] args)
+    internal static CommandPacket Eval(string script, ICollection<string> keys, SharpValueSpan args)
 #endif
+    {
+        var command = new CommandPacket(ScriptCommands._eval, CommandMode.LuaScript)
+            .WriteArguments(script);
+        if (keys is { Count: > 0 })
         {
-            if (string.IsNullOrEmpty(sha1)) throw new RedisException("The SHA1 cannot be empty or null");
-            var keysCount = keys?.Length ?? 0;
-            return new CommandPacket("EVALSHA", CommandMode.Script)
-                .WriteArg(sha1)
-                .WriteArg(keysCount)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteKeys(keysCount > 0, keys!)
-                .WriteArgs(args?.Length > 0, args!);
-#else
-                .WriteKeys(keysCount > 0, keys)
-                .WriteArgs(args?.Length > 0, args);
-#endif
+            _ = command.WriteArguments(keys.Count.ToBytes());
+            foreach (var key in keys)
+            {
+                _ = command.WriteKeys(key);
+            }
         }
+        else
+        {
+            _ = command.WriteArguments("0");
+        }
+        foreach (var arg in args)
+        {
+            _ = command.WriteArguments(arg);
+        }
+        return command;
+    }
 
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket Eval(string script, string[]? keys, string[]? args)
-#else
-        internal static CommandPacket Eval(string script, string[] keys, string[] args)
-#endif
+    internal static CommandPacket Eval_Ro(string script, ReadOnlySpan<string> keys, SharpValueSpan args)
+    {
+        var command = new CommandPacket(ScriptCommands._eval_ro, CommandMode.LuaScript | CommandMode.WithRead)
+            .WriteArguments(script)
+            .WriteArguments(keys.Length.ToBytes());
+        foreach (var key in keys)
         {
-            if (string.IsNullOrEmpty(script)) throw new RedisException("The script to be executed cannot be empty or null");
-            var keysCount = keys?.Length ?? 0;
-            return new CommandPacket("EVAL", CommandMode.Script)
-                .WriteArg(script)
-                .WriteArg(keysCount)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteKeys(keysCount > 0, keys!)
-                .WriteArgs(args?.Length > 0, args!);
-#else
-                .WriteKeys(keysCount > 0, keys)
-                .WriteArgs(args?.Length > 0, args);
-#endif
+            _ = command.WriteKeys(key);
         }
+        foreach (var arg in args)
+        {
+            _ = command.WriteArguments(arg);
+        }
+        return command;
+    }
 
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket Eval_Ro(string script, string[]? keys, string[]? args)
+#if MODERN_NET
+    internal static CommandPacket Eval_Ro(string script, ICollection<string>? keys, SharpValueSpan args)
 #else
-        internal static CommandPacket Eval_Ro(string script, string[] keys, string[] args)
+    internal static CommandPacket Eval_Ro(string script, ICollection<string> keys, SharpValueSpan args)
 #endif
+    {
+        var command = new CommandPacket(ScriptCommands._eval_ro, CommandMode.LuaScript | CommandMode.WithRead)
+            .WriteArguments(script);
+        if (keys is { Count: > 0 })
         {
-            if (string.IsNullOrEmpty(script)) throw new RedisException("The script to be executed cannot be empty or null");
-            var keysCount = keys?.Length ?? 0;
-            return new CommandPacket("EVAL_RO", CommandMode.Script | CommandMode.Read)
-                .WriteArg(script)
-                .WriteArg(keysCount)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteKeys(keysCount > 0, keys!)
-                .WriteArgs(args?.Length > 0, args!);
+            _ = command.WriteArguments(keys.Count.ToBytes());
+            foreach (var key in keys)
+            {
+                _ = command.WriteKeys(key);
+            }
+        }
+        else
+        {
+            _ = command.WriteArguments("0");
+        }
+        foreach (var arg in args)
+        {
+            _ = command.WriteArguments(arg);
+        }
+        return command;
+    }
+
+    internal static CommandPacket ScriptLoad(string script)
+    {
+        return new CommandPacket(ScriptCommands._script, CommandMode.LuaScript)
+            .WriteCommand(ScriptCommands._load)
+            .WriteArguments(script);
+    }
+
+    internal static CommandPacket EvalSHA(string sha1, ReadOnlySpan<string> keys, SharpValueSpan args)
+    {
+        if (string.IsNullOrEmpty(sha1)) throw new NotSupportedException("The SHA1 value of the Lua script is empty.");
+        var command = new CommandPacket(ScriptCommands._evalsha, CommandMode.LuaScript)
+            .WriteArguments(sha1)
+            .WriteArguments(keys.Length.ToBytes());
+        foreach (var key in keys)
+        {
+            _ = command.WriteKeys(key);
+        }
+        foreach (var arg in args)
+        {
+            _ = command.WriteArguments(arg);
+        }
+        return command;
+    }
+
+#if MODERN_NET
+    internal static CommandPacket EvalSHA(string sha1, ICollection<string>? keys, SharpValueSpan args)
 #else
-                .WriteKeys(keysCount > 0, keys)
-                .WriteArgs(args?.Length > 0, args);
+    internal static CommandPacket EvalSHA(string sha1, ICollection<string> keys, SharpValueSpan args)
 #endif
+    {
+        if (string.IsNullOrEmpty(sha1)) throw new NotSupportedException("The SHA1 value of the Lua script is empty.");
+        var command = new CommandPacket(ScriptCommands._evalsha, CommandMode.LuaScript)
+            .WriteArguments(sha1);
+        if (keys is { Count: > 0 })
+        {
+            _ = command.WriteArguments(keys.Count.ToBytes());
+            foreach (var key in keys)
+            {
+                _ = command.WriteKeys(key);
+            }
         }
+        else
+        {
+            _ = command.WriteArguments("0");
+        }
+        foreach (var arg in args)
+        {
+            _ = command.WriteArguments(arg);
+        }
+        return command;
+    }
 
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket EvalSHA_Ro(string sha1, string[]? keys, string[]? args)
+    internal static CommandPacket EvalSHA_Ro(string sha1, ReadOnlySpan<string> keys, SharpValueSpan args)
+    {
+        if (string.IsNullOrEmpty(sha1)) throw new NotSupportedException("The SHA1 value of the Lua script is empty.");
+        var command = new CommandPacket(ScriptCommands._evalsha_ro, CommandMode.LuaScript | CommandMode.WithRead)
+            .WriteArguments(sha1)
+            .WriteArguments(keys.Length.ToBytes());
+        foreach (var key in keys)
+        {
+            _ = command.WriteKeys(key);
+        }
+        foreach (var arg in args)
+        {
+            _ = command.WriteArguments(arg);
+        }
+        return command;
+    }
+
+#if MODERN_NET
+    internal static CommandPacket EvalSHA_Ro(string sha1, ICollection<string>? keys, SharpValueSpan args)
 #else
-        internal static CommandPacket EvalSHA_Ro(string sha1, string[] keys, string[] args)
+    internal static CommandPacket EvalSHA_Ro(string sha1, ICollection<string> keys, SharpValueSpan args)
 #endif
+    {
+        if (string.IsNullOrEmpty(sha1)) throw new NotSupportedException("The SHA1 value of the Lua script is empty.");
+        var command = new CommandPacket(ScriptCommands._evalsha_ro, CommandMode.LuaScript | CommandMode.WithRead)
+            .WriteArguments(sha1);
+        if (keys is { Count: > 0 })
         {
-            if (string.IsNullOrEmpty(sha1)) throw new RedisException("The SHA1 cannot be empty or null");
-            var keysCount = keys?.Length ?? 0;
-            return new CommandPacket("EVALSHA_RO", CommandMode.Script | CommandMode.Read)
-                .WriteArg(sha1)
-                .WriteArg(keysCount)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteKeys(keysCount > 0, keys!)
-                .WriteArgs(args?.Length > 0, args!);
-#else
-                .WriteKeys(keysCount > 0, keys)
-                .WriteArgs(args?.Length > 0, args);
-#endif
+            _ = command.WriteArguments(keys.Count.ToBytes());
+            foreach (var key in keys)
+            {
+                _ = command.WriteKeys(key);
+            }
         }
-        #endregion
+        else
+        {
+            _ = command.WriteArguments("0");
+        }
+        foreach (var arg in args)
+        {
+            _ = command.WriteArguments(arg);
+        }
+        return command;
+    }
 
-        #region Function
-        internal static CommandPacket FunctionLoad(string functionCode, bool replace)
-        {
-            return new CommandPacket("FUNCTION", CommandMode.Script)
-                .WriteArg("LOAD")
-                .WriteArg(replace, "REPLACE")
-                .WriteValue(functionCode);
-        }
+    internal static CommandPacket ScriptDebug(DebugMode mode)
+    {
+        var command = new CommandPacket(ScriptCommands._script, CommandMode.LuaScript | CommandMode.DoNotReuseConnection)
+            .WriteCommand(ScriptCommands._debug);
 
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket FCall(string function, string[]? keys, string[]? args)
-#else
-        internal static CommandPacket FCall(string function, string[] keys, string[] args)
-#endif
+        return mode switch
         {
-            if (string.IsNullOrEmpty(function)) throw new RedisException("The function to be executed cannot be empty or null");
-            var keysCount = keys?.Length ?? 0;
-            return new CommandPacket("FCALL", CommandMode.Script)
-                .WriteArg(function)
-                .WriteArg(keysCount)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteKeys(keysCount > 0, keys!)
-                .WriteArgs(args?.Length > 0, args!);
-#else
-                .WriteKeys(keysCount > 0, keys)
-                .WriteArgs(args?.Length > 0, args);
-#endif
-        }
+            DebugMode.Yes => command.WriteArguments("YES"),
+            DebugMode.Sync => command.WriteArguments("SYNC"),
+            DebugMode.No => command.WriteArguments("NO"),
+            _ => throw new NotSupportedException("Unsupported debugging mode"),
+        };
+    }
 
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket FCall_Ro(string function, string[]? keys, string[]? args)
-#else
-        internal static CommandPacket FCall_Ro(string function, string[] keys, string[] args)
-#endif
-        {
-            if (string.IsNullOrEmpty(function)) throw new RedisException("The function to be executed cannot be empty or null");
-            var keysCount = keys?.Length ?? 0;
-            return new CommandPacket("FCALL_RO", CommandMode.Script | CommandMode.Read)
-                .WriteArg(function)
-                .WriteArg(keysCount)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteKeys(keysCount > 0, keys!)
-                .WriteArgs(args?.Length > 0, args!);
-#else
-                .WriteKeys(keysCount > 0, keys)
-                .WriteArgs(args?.Length > 0, args);
-#endif
-        }
+    internal static CommandPacket ScriptExists(string sha1)
+    {
+        if (string.IsNullOrEmpty(sha1)) throw new NotSupportedException("The SHA1 value of the Lua script is empty.");
+        return new CommandPacket(ScriptCommands._script, CommandMode.LuaScript)
+            .WriteCommand(ScriptCommands._exists)
+            .WriteArguments(sha1);
+    }
 
-        internal static CommandPacket FunctionDelete(string libraryName)
+    internal static CommandPacket ScriptExists(ReadOnlySpan<string> sha1)
+    {
+        if (sha1.IsEmpty) throw new NotSupportedException("Please specify at least one sha1 value.");
+        var command = new CommandPacket(ScriptCommands._script, CommandMode.LuaScript)
+            .WriteCommand(ScriptCommands._exists);
+        foreach (var item in sha1)
         {
-            return new CommandPacket("FUNCTION", CommandMode.Script)
-                .WriteArg("DELETE")
-                .WriteValue(libraryName);
+            _ = command.WriteArguments(item);
         }
+        return command;
+    }
 
-        internal static CommandPacket FunctionDump()
+    internal static CommandPacket ScriptExists(ICollection<string> sha1)
+    {
+        if (sha1 is null or { Count: <= 0 }) throw new NotSupportedException("Please specify at least one sha1 value.");
+        var command = new CommandPacket(ScriptCommands._script, CommandMode.LuaScript)
+            .WriteCommand(ScriptCommands._exists);
+        foreach (var item in sha1)
         {
-            return new CommandPacket("FUNCTION", CommandMode.Script)
-                .WriteArg("DUMP");
+            _ = command.WriteArguments(item);
         }
+        return command;
+    }
 
-        internal static CommandPacket FunctionFlush(FlushingMode mode)
-        {
-            return new CommandPacket("FUNCTION", CommandMode.Script)
-                .WriteArg("FLUSH")
-                .WriteArg(mode == FlushingMode.Sync, "SYNC")
-                .WriteArg(mode == FlushingMode.Async, "ASYNC");
-        }
+    internal static CommandPacket ScriptFlush(AsyncSync mode)
+    {
+        var command = new CommandPacket(ScriptCommands._script, CommandMode.LuaScript)
+            .WriteCommand(ScriptCommands._flush);
 
-        internal static CommandPacket FunctionRestore(byte[] serializedPayload, FunctionRestoreMode mode)
+        return mode switch
         {
-            return new CommandPacket("FUNCTION", CommandMode.Script)
-                .WriteArg("RESTORE")
-                .WriteValue(serializedPayload)
-                .WriteArg(mode is FunctionRestoreMode.Append, "APPEND")
-                .WriteArg(mode is FunctionRestoreMode.Flush, "FLUSH")
-                .WriteArg(mode is FunctionRestoreMode.Replace, "REPLACE");
-        }
+            AsyncSync.Async => command.WriteArguments("ASYNC"),
+            AsyncSync.Sync => command.WriteArguments("SYNC"),
+            _ => command,
+        };
+    }
 
-        internal static CommandPacket FunctionKill()
-        {
-            return new CommandPacket("FUNCTION", CommandMode.Script)
-                .WriteArg("KILL");
-        }
-
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket FunctionList(string? libraryNamePattern, bool withCode)
-#else
-        internal static CommandPacket FunctionList(string libraryNamePattern, bool withCode)
-#endif
-        {
-            return new CommandPacket("FUNCTION", CommandMode.Script)
-                .WriteArg("LIST")
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteArg(libraryNamePattern != null, "LIBRARYNAME", libraryNamePattern!)
-#else
-                .WriteArg(libraryNamePattern != null, "LIBRARYNAME", libraryNamePattern)
-#endif
-                .WriteArg(withCode, "WITHCODE");
-        }
-
-        internal static CommandPacket FunctionStats()
-        {
-            return new CommandPacket("FUNCTION", CommandMode.Script)
-                .WriteArg("STATS");
-        }
-        #endregion
+    internal static CommandPacket ScriptKill()
+    {
+        return new CommandPacket(ScriptCommands._script, CommandMode.LuaScript)
+            .WriteCommand(ScriptCommands._kill);
     }
 }

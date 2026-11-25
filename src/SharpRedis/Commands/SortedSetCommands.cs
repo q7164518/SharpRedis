@@ -1,863 +1,1071 @@
-﻿using SharpRedis.Models;
+﻿using SharpRedis.Entities.Command;
+using SharpRedis.Enums;
+using SharpRedis.Extensions;
+using System;
 using System.Collections.Generic;
+using static SharpRedis.Enums.CommandMode;
+using static SharpRedis.RedisSortedSet;
 
-namespace SharpRedis.Commands
+namespace SharpRedis.Commands;
+
+internal static class SortedSetCommands
 {
-    internal static class SortedSetCommands
+    private const string _withScoresString = "WITHSCORES";
+
+    private static readonly SharpValue _zadd = new("ZADD", CommandItemCategory.Command);
+    private static readonly SharpValue _zcard = new("ZCARD", CommandItemCategory.Command);
+    private static readonly SharpValue _zscore = new("ZSCORE", CommandItemCategory.Command);
+    private static readonly SharpValue _zcount = new("ZCOUNT", CommandItemCategory.Command);
+    private static readonly SharpValue _zdiff = new("ZDIFF", CommandItemCategory.Command);
+    private static readonly SharpValue _zdiffStore = new("ZDIFFSTORE", CommandItemCategory.Command);
+    private static readonly SharpValue _zrange = new("ZRANGE", CommandItemCategory.Command);
+    private static readonly SharpValue _zincrby = new("ZINCRBY", CommandItemCategory.Command);
+    private static readonly SharpValue _zinter = new("ZINTER", CommandItemCategory.Command);
+    private static readonly SharpValue _zinterCard = new("ZINTERCARD", CommandItemCategory.Command);
+    private static readonly SharpValue _zinterStore = new("ZINTERSTORE", CommandItemCategory.Command);
+    private static readonly SharpValue _zlexCount = new("ZLEXCOUNT", CommandItemCategory.Command);
+    private static readonly SharpValue _zmpop = new("ZMPOP", CommandItemCategory.Command);
+    private static readonly SharpValue _zmscore = new("ZMSCORE", CommandItemCategory.Command);
+    private static readonly SharpValue _zpopmax = new("ZPOPMAX", CommandItemCategory.Command);
+    private static readonly SharpValue _zpopmin = new("ZPOPMIN", CommandItemCategory.Command);
+    private static readonly SharpValue _zrandmember = new("ZRANDMEMBER", CommandItemCategory.Command);
+    private static readonly SharpValue _zrangebylex = new("ZRANGEBYLEX", CommandItemCategory.Command);
+    private static readonly SharpValue _zrangebyscore = new("ZRANGEBYSCORE", CommandItemCategory.Command);
+    private static readonly SharpValue _zrangestore = new("ZRANGESTORE", CommandItemCategory.Command);
+    private static readonly SharpValue _zrank = new("ZRANK", CommandItemCategory.Command);
+    private static readonly SharpValue _zrem = new("ZREM", CommandItemCategory.Command);
+    private static readonly SharpValue _zremrangebylex = new("ZREMRANGEBYLEX", CommandItemCategory.Command);
+    private static readonly SharpValue _zremrangebyrank = new("ZREMRANGEBYRANK", CommandItemCategory.Command);
+    private static readonly SharpValue _zremrangebyscore = new("ZREMRANGEBYSCORE", CommandItemCategory.Command);
+    private static readonly SharpValue _zrevrange = new("ZREVRANGE", CommandItemCategory.Command);
+    private static readonly SharpValue _zrevrangebylex = new("ZREVRANGEBYLEX", CommandItemCategory.Command);
+    private static readonly SharpValue _zrevrangebyscore = new("ZREVRANGEBYSCORE", CommandItemCategory.Command);
+    private static readonly SharpValue _zrevrank = new("ZREVRANK", CommandItemCategory.Command);
+    private static readonly SharpValue _zunion = new("ZUNION", CommandItemCategory.Command);
+    private static readonly SharpValue _zunionstore = new("ZUNIONSTORE", CommandItemCategory.Command);
+    private static readonly SharpValue _bzmpop = new("BZMPOP", CommandItemCategory.Command);
+    private static readonly SharpValue _bzpopmax = new("BZPOPMAX", CommandItemCategory.Command);
+    private static readonly SharpValue _bzpopmin = new("BZPOPMIN", CommandItemCategory.Command);
+    private static readonly SharpValue _bzmove = new("BZMOVE", CommandItemCategory.Command);
+    private static readonly SharpValue _zmove = new("ZMOVE", CommandItemCategory.Command);
+    private static readonly SharpValue _zmovemember = new("ZMOVEMEMBER", CommandItemCategory.Command);
+
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static CommandPacket WriteDouble(this CommandPacket command, double value)
     {
-        private static CommandPacket ZAdd(string key, NxXx nxx, GtLt gl, bool ch, bool incr)
+        if (value == double.PositiveInfinity)
         {
-            if (nxx == NxXx.Nx && gl != GtLt.None) throw new RedisException("The GT, LT and NX options are mutually exclusive");
-            return new CommandPacket("ZADD", CommandMode.Write)
-                .WriteKey(key)
-                .WriteArg(nxx != NxXx.None, nxx == NxXx.Xx ? "XX" : "NX")
-                .WriteArg(gl != GtLt.None, gl == GtLt.Gt ? "GT" : "LT")
-                .WriteArg(ch, "CH")
-                .WriteArg(incr, "INCR");
+            return command.WriteArguments("inf");
+        }
+        else if (value == double.NegativeInfinity)
+        {
+            return command.WriteArguments("-inf");
+        }
+        else
+        {
+            return command.WriteArguments(value.ToBytes());
+        }
+    }
+
+    internal static CommandPacket ZAdd(SharpValue key, SharpValue member, double score, ZAddWhen when, ZAddScoreWhen scoreWhen, bool ch, bool incr)
+    {
+        return new CommandPacket(SortedSetCommands._zadd, ZSet | WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(when is ZAddWhen.NX, nameof(ZAddWhen.NX))
+            .WriteArguments(when is ZAddWhen.XX, nameof(ZAddWhen.XX))
+            .WriteArguments(scoreWhen is ZAddScoreWhen.LT, nameof(ZAddScoreWhen.LT))
+            .WriteArguments(scoreWhen is ZAddScoreWhen.GT, nameof(ZAddScoreWhen.GT))
+            .WriteArguments(ch, "CH")
+            .WriteArguments(incr, "INCR")
+            .WriteDouble(score)
+            .WriteArguments(member);
+    }
+
+    internal static CommandPacket ZAdd(SharpValue key, IEnumerable<KeyValuePair<SharpValue, double>> members, ZAddWhen when, ZAddScoreWhen scoreWhen, bool ch, bool incr)
+    {
+        var command = new CommandPacket(SortedSetCommands._zadd, ZSet | WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(when is ZAddWhen.NX, nameof(ZAddWhen.NX))
+            .WriteArguments(when is ZAddWhen.XX, nameof(ZAddWhen.XX))
+            .WriteArguments(scoreWhen is ZAddScoreWhen.LT, nameof(ZAddScoreWhen.LT))
+            .WriteArguments(scoreWhen is ZAddScoreWhen.GT, nameof(ZAddScoreWhen.GT))
+            .WriteArguments(ch, "CH")
+            .WriteArguments(incr, "INCR");
+
+        foreach (var member in members)
+        {
+            _ = command
+                .WriteDouble(member.Value)
+                .WriteArguments(member.Key);
         }
 
-        internal static CommandPacket ZAdd<TMember, TScore>(string key, TMember member, TScore score, NxXx nxx = NxXx.None, GtLt gl = GtLt.None, bool ch = false, bool incr = false)
-#if NET7_0_OR_GREATER
-            where TScore : struct, System.Numerics.INumber<TScore>
-#else
-            where TScore : struct, System.IEquatable<TScore>
-#endif
-            where TMember : class
+        return command;
+    }
+
+    internal static CommandPacket ZCard(SharpValue key)
+        => new CommandPacket(SortedSetCommands._zcard, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key);
+
+    internal static CommandPacket ZScore(SharpValue key, SharpValue member)
+        => new CommandPacket(SortedSetCommands._zscore, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(member);
+
+    internal static CommandPacket ZCount(SharpValue key, double min, double max)
+    {
+        return new CommandPacket(SortedSetCommands._zcount, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteDouble(min)
+            .WriteDouble(max);
+    }
+
+    internal static CommandPacket ZDiff(SharpValue key1, SharpValue key2, bool withScores)
+        => new CommandPacket(SortedSetCommands._zdiff, ZSet | WithRead | WithClientCaching)
+            .WriteArguments("2")
+            .WriteKeys(key1)
+            .WriteKeys(key2)
+            .WriteArguments(withScores, SortedSetCommands._withScoresString);
+
+    internal static CommandPacket ZDiff(SharpValueSpan keys, bool withScores)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        return new CommandPacket(SortedSetCommands._zdiff, ZSet | WithRead | WithClientCaching)
+            .WriteArguments(keys.Count.ToBytes())
+            .WriteKeys(keys)
+            .WriteArguments(withScores, SortedSetCommands._withScoresString);
+    }
+
+    internal static CommandPacket ZDiffStore(SharpValue key1, SharpValue key2, SharpValue destination)
+        => new CommandPacket(SortedSetCommands._zdiffStore, ZSet | WithWrite)
+            .WriteKeys(destination)
+            .WriteArguments("2")
+            .WriteKeys(key1)
+            .WriteKeys(key2);
+
+    internal static CommandPacket ZDiffStore(SharpValueSpan keys, SharpValue destination)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        return new CommandPacket(SortedSetCommands._zdiffStore, ZSet | WithWrite)
+            .WriteKeys(destination)
+            .WriteArguments(keys.Count.ToBytes())
+            .WriteKeys(keys);
+    }
+
+    internal static CommandPacket ZRange(SharpValue key, RangeArg start, RangeArg stop, RangeBy by, bool rev, ulong? offset, int? count, bool withScores = false)
+    {
+        var command = new CommandPacket(SortedSetCommands._zrange, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(start.Value)
+            .WriteArguments(stop.Value)
+            .WriteArguments(by is RangeBy.ByScore, "BYSCORE")
+            .WriteArguments(by is RangeBy.ByLex, "BYLEX")
+            .WriteArguments(rev, "REV");
+        if (offset.HasValue && count.HasValue)
         {
-            var scoreString = score.ToString() ?? throw new RedisException("Score is null!");
-            var command = SortedSetCommands.ZAdd(key, nxx, gl, ch, incr);
-            if (score is double dou)
+            _ = command
+                .WriteArguments("LIMIT")
+                .WriteArguments(offset.Value.ToBytes())
+                .WriteArguments(count.Value.ToBytes());
+        }
+
+        return command.WriteArguments(withScores, SortedSetCommands._withScoresString);
+    }
+
+    internal static CommandPacket ZIncrBy(SharpValue key, double increment, SharpValue member)
+    {
+        return new CommandPacket(SortedSetCommands._zincrby, ZSet | WithWrite)
+            .WriteKeys(key)
+            .WriteDouble(increment)
+            .WriteArguments(member);
+    }
+
+    internal static CommandPacket ZInter(
+        SharpValue key1,
+        SharpValue key2,
+        double key1Weight,
+        double key2Weight,
+        Aggregate aggregate,
+        bool withScores = false)
+    {
+        var command = new CommandPacket(SortedSetCommands._zinter, ZSet | WithRead | WithClientCaching)
+            .WriteArguments("2")
+            .WriteKeys(key1)
+            .WriteKeys(key2)
+            .WriteArguments("WEIGHTS")
+            .WriteDouble(key1Weight)
+            .WriteDouble(key2Weight);
+
+        if (aggregate != Aggregate.Sum)
+        {
+            _ = command.WriteArguments("AGGREGATE");
+            switch (aggregate)
             {
-                if (dou == double.PositiveInfinity)
+                case Aggregate.Min:
+                    _ = command.WriteArguments("MIN");
+                    break;
+                case Aggregate.Max:
+                    _ = command.WriteArguments("MAX");
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return command.WriteArguments(withScores, SortedSetCommands._withScoresString);
+    }
+
+    internal static CommandPacket ZInter(
+        SharpValueSpan keys,
+        ReadOnlySpan<double> weights,
+        Aggregate aggregate,
+        bool withScores = false)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        var command = new CommandPacket(SortedSetCommands._zinter, ZSet | WithRead | WithClientCaching)
+            .WriteArguments(keys.Count.ToBytes())
+            .WriteKeys(keys)
+            .WriteArguments("WEIGHTS");
+
+        if (weights.IsEmpty)
+        {
+            for (int i = 0; i < keys.Count; i++)
+            {
+                _ = command.WriteArguments("1");
+            }
+        }
+        else
+        {
+            if (weights.Length == keys.Count)
+            {
+                foreach (var item in weights)
                 {
-                    command.WriteValue("+inf");
-                }
-                else if (dou == double.NegativeInfinity)
-                {
-                    command.WriteValue("-inf");
-                }
-                else
-                {
-                    command.WriteValue(scoreString);
+                    _ = command.WriteDouble(item);
                 }
             }
-            else if (score is float @float)
+            else if (weights.Length > keys.Count)
             {
-                if (@float == float.PositiveInfinity)
+                int i = 0;
+                foreach (var item in weights)
                 {
-                    command.WriteValue("+inf");
-                }
-                else if (@float == float.NegativeInfinity)
-                {
-                    command.WriteValue("-inf");
-                }
-                else
-                {
-                    command.WriteValue(scoreString);
+                    _ = command.WriteDouble(item);
+                    i++;
+                    if (i >= keys.Count) break;
                 }
             }
             else
             {
-                command.WriteValue(scoreString);
+                int i = 0;
+                foreach (var item in weights)
+                {
+                    _ = command.WriteDouble(item);
+                    i++;
+                }
+                for (; i < keys.Count; i++)
+                {
+                    _ = command.WriteArguments("1");
+                }
             }
-            command.WriteValue(member);
-            return command;
         }
 
-        internal static CommandPacket ZAdd<TMember, TScore>(string key, Dictionary<TMember, TScore> members, NxXx nxx = NxXx.None, GtLt gl = GtLt.None, bool ch = false, bool incr = false)
-#if NET7_0_OR_GREATER
-            where TScore : struct, System.Numerics.INumber<TScore>
-#else
-            where TScore : struct, System.IEquatable<TScore>
-#endif
-            where TMember : class
+        if (aggregate != Aggregate.Sum)
         {
-            if (members is null || members.Count is 0) throw new RedisException("There are no valid member");
-            var command = SortedSetCommands.ZAdd(key, nxx, gl, ch, incr);
-            foreach (var item in members)
+            _ = command.WriteArguments("AGGREGATE");
+            switch (aggregate)
             {
-                var scoreString = item.Value.ToString() ?? throw new RedisException("Score is null!");
-                if (item.Value is double dou)
-                {
-                    if (dou == double.PositiveInfinity)
-                    {
-                        command.WriteValue("+inf");
-                    }
-                    else if (dou == double.NegativeInfinity)
-                    {
-                        command.WriteValue("-inf");
-                    }
-                    else
-                    {
-                        command.WriteValue(scoreString);
-                    }
-                }
-                else if (item.Value is float @float)
-                {
-                    if (@float == float.PositiveInfinity)
-                    {
-                        command.WriteValue("+inf");
-                    }
-                    else if (@float == float.NegativeInfinity)
-                    {
-                        command.WriteValue("-inf");
-                    }
-                    else
-                    {
-                        command.WriteValue(scoreString);
-                    }
-                }
-                else
-                {
-                    command.WriteValue(scoreString);
-                }
-                command.WriteValue(item.Key);
+                case Aggregate.Min:
+                    _ = command.WriteArguments("MIN");
+                    break;
+                case Aggregate.Max:
+                    _ = command.WriteArguments("MAX");
+                    break;
+                default:
+                    break;
             }
-
-            return command;
         }
 
-        internal static CommandPacket ZCard(string key)
-            => new CommandPacket("ZCARD", CommandMode.Read | CommandMode.WithClientSideCache).WriteKey(key);
+        return command.WriteArguments(withScores, SortedSetCommands._withScoresString);
+    }
 
-        internal static CommandPacket ZCount<TScore>(string key, TScore min, TScore max, bool withMin, bool withMax)
-#if NET7_0_OR_GREATER
-            where TScore : struct, System.Numerics.INumber<TScore>
-#else
-            where TScore : struct, System.IEquatable<TScore>
-#endif
+    internal static CommandPacket ZInterCard(SharpValue key1, SharpValue key2, ulong limit)
+    {
+        var command = new CommandPacket(SortedSetCommands._zinterCard, ZSet | WithRead | WithClientCaching)
+            .WriteArguments("2")
+            .WriteKeys(key1)
+            .WriteKeys(key2);
+        if (limit > 0)
         {
-            var minString = min.ToString() ?? throw new RedisException("min is null!");
-            var maxString = max.ToString() ?? throw new RedisException("max is null!");
-            var command = new CommandPacket("ZCOUNT", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key);
-            if (min is double minDouble)
-            {
-                if (minDouble == double.PositiveInfinity)
-                {
-                    minString = "+inf";
-                }
-                else if (minDouble == double.NegativeInfinity)
-                {
-                    minString = "-inf";
-                }
-            }
-            else if (min is float minFloat)
-            {
-                if (minFloat == float.PositiveInfinity)
-                {
-                    minString = "+inf";
-                }
-                else if (minFloat == float.NegativeInfinity)
-                {
-                    minString = "-inf";
-                }
-            }
+            _ = command
+                .WriteArguments("LIMIT")
+                .WriteArguments(limit.ToBytes());
+        }
+        return command;
+    }
 
-            if (max is double maxDouble)
+    internal static CommandPacket ZInterCard(SharpValueSpan keys, ulong limit)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        var command = new CommandPacket(SortedSetCommands._zinterCard, ZSet | WithRead | WithClientCaching)
+            .WriteArguments(keys.Count.ToBytes())
+            .WriteKeys(keys);
+        if (limit > 0)
+        {
+            _ = command
+                .WriteArguments("LIMIT")
+                .WriteArguments(limit.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket ZInterStore(
+        SharpValue destination,
+        SharpValue key1,
+        SharpValue key2,
+        double key1Weight,
+        double key2Weight,
+        Aggregate aggregate)
+    {
+        var command = new CommandPacket(SortedSetCommands._zinterStore, ZSet | WithWrite)
+            .WriteKeys(destination)
+            .WriteArguments("2")
+            .WriteKeys(key1)
+            .WriteKeys(key2)
+            .WriteArguments("WEIGHTS")
+            .WriteDouble(key1Weight)
+            .WriteDouble(key2Weight);
+
+        if (aggregate != Aggregate.Sum)
+        {
+            _ = command.WriteArguments("AGGREGATE");
+            switch (aggregate)
             {
-                if (maxDouble == double.PositiveInfinity)
+                case Aggregate.Min:
+                    _ = command.WriteArguments("MIN");
+                    break;
+                case Aggregate.Max:
+                    _ = command.WriteArguments("MAX");
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return command;
+    }
+
+    internal static CommandPacket ZInterStore(
+        SharpValue destination,
+        SharpValueSpan keys,
+        ReadOnlySpan<double> weights,
+        Aggregate aggregate)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        var command = new CommandPacket(SortedSetCommands._zinterStore, ZSet | WithWrite)
+            .WriteKeys(destination)
+            .WriteArguments(keys.Count.ToBytes())
+            .WriteKeys(keys)
+            .WriteArguments("WEIGHTS");
+
+        if (weights.IsEmpty)
+        {
+            for (int i = 0; i < keys.Count; i++)
+            {
+                _ = command.WriteArguments("1");
+            }
+        }
+        else
+        {
+            if (weights.Length == keys.Count)
+            {
+                foreach (var item in weights)
                 {
-                    maxString = "+inf";
-                }
-                else if (maxDouble == double.NegativeInfinity)
-                {
-                    maxString = "-inf";
+                    _ = command.WriteDouble(item);
                 }
             }
-            else if (max is float maxFloat)
+            else if (weights.Length > keys.Count)
             {
-                if (maxFloat == float.PositiveInfinity)
+                int i = 0;
+                foreach (var item in weights)
                 {
-                    maxString = "+inf";
-                }
-                else if (maxFloat == float.NegativeInfinity)
-                {
-                    maxString = "-inf";
+                    _ = command.WriteDouble(item);
+                    i++;
+                    if (i >= keys.Count) break;
                 }
             }
+            else
+            {
+                int i = 0;
+                foreach (var item in weights)
+                {
+                    _ = command.WriteDouble(item);
+                    i++;
+                }
+                for (; i < keys.Count; i++)
+                {
+                    _ = command.WriteArguments("1");
+                }
+            }
+        }
 
-            if (!withMin) minString = $"({minString}";
-            if (!withMax) maxString = $"({maxString}";
+        if (aggregate != Aggregate.Sum)
+        {
+            _ = command.WriteArguments("AGGREGATE");
+            switch (aggregate)
+            {
+                case Aggregate.Min:
+                    _ = command.WriteArguments("MIN");
+                    break;
+                case Aggregate.Max:
+                    _ = command.WriteArguments("MAX");
+                    break;
+                default:
+                    break;
+            }
+        }
 
+        return command;
+    }
+
+    internal static CommandPacket ZLexCount(SharpValue key, RangeArg min, RangeArg max)
+    {
+        return new CommandPacket(SortedSetCommands._zlexCount, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(min.Value)
+            .WriteArguments(max.Value);
+    }
+
+    internal static CommandPacket ZMPop(SharpValue key1, SharpValue key2, PopHow how, int count)
+    {
+        var command = new CommandPacket(SortedSetCommands._zmpop, ZSet | WithWrite)
+            .WriteArguments("2")
+            .WriteKeys(key1)
+            .WriteKeys(key2)
+            .WriteArguments(how is PopHow.Min, "MIN")
+            .WriteArguments(how is PopHow.Max, "MAX");
+        if (count > 1)
+        {
+            _ = command
+                .WriteArguments("COUNT")
+                .WriteArguments(count.ToBytes());
+        }
+
+        return command;
+    }
+
+    internal static CommandPacket ZMPop(SharpValueSpan keys, PopHow how, int count)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        var command = new CommandPacket(SortedSetCommands._zmpop, ZSet | WithWrite)
+            .WriteArguments(keys.Count.ToBytes())
+            .WriteKeys(keys)
+            .WriteArguments(how is PopHow.Min, "MIN")
+            .WriteArguments(how is PopHow.Max, "MAX");
+        if (count > 1)
+        {
+            _ = command
+                .WriteArguments("COUNT")
+                .WriteArguments(count.ToBytes());
+        }
+
+        return command;
+    }
+
+    internal static CommandPacket ZMScore(SharpValue key, SharpValueSpan members)
+    {
+        if (members.IsEmpty) throw new NotSupportedException("Please specify at least one member.");
+        return new CommandPacket(SortedSetCommands._zmscore, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(members);
+    }
+
+    internal static CommandPacket ZPopMax(SharpValue key, int count)
+    {
+        var command = new CommandPacket(SortedSetCommands._zpopmax, ZSet | WithWrite)
+            .WriteKeys(key);
+        if (count > 1)
+        {
+            _ = command.WriteArguments(count.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket ZPopMin(SharpValue key, int count)
+    {
+        var command = new CommandPacket(SortedSetCommands._zpopmin, ZSet | WithWrite)
+            .WriteKeys(key);
+        if (count > 1)
+        {
+            _ = command.WriteArguments(count.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket ZRandMember(SharpValue key, int count, bool withScores)
+    {
+        return new CommandPacket(SortedSetCommands._zrandmember, ZSet | WithRead)
+           .WriteKeys(key)
+           .WriteArguments(count.ToBytes())
+           .WriteArguments(withScores, SortedSetCommands._withScoresString);
+    }
+
+    internal static CommandPacket ZRangeByLex(SharpValue key, RangeArg min, RangeArg max, ulong? offset, int? count)
+    {
+        var command = new CommandPacket(SortedSetCommands._zrangebylex, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(min.Value)
+            .WriteArguments(max.Value);
+        if (offset.HasValue && count.HasValue)
+        {
+            _ = command
+                .WriteArguments("LIMIT")
+                .WriteArguments(offset.Value.ToBytes())
+                .WriteArguments(count.Value.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket ZRangeByScore(SharpValue key, RangeArg min, RangeArg max, bool withScores, ulong? offset, int? count)
+    {
+        var command = new CommandPacket(SortedSetCommands._zrangebyscore, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(min.Value)
+            .WriteArguments(max.Value)
+            .WriteArguments(withScores, SortedSetCommands._withScoresString);
+        if (offset.HasValue && count.HasValue)
+        {
+            _ = command
+                .WriteArguments("LIMIT")
+                .WriteArguments(offset.Value.ToBytes())
+                .WriteArguments(count.Value.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket ZRangeStore(SharpValue destination, SharpValue key, RangeArg min, RangeArg max, RangeBy by, bool rev, ulong? offset, int? count)
+    {
+        var command = new CommandPacket(SortedSetCommands._zrangestore, ZSet | WithWrite)
+            .WriteKeys(destination)
+            .WriteKeys(key)
+            .WriteArguments(min.Value)
+            .WriteArguments(max.Value)
+            .WriteArguments(by is RangeBy.ByScore, "BYSCORE")
+            .WriteArguments(by is RangeBy.ByLex, "BYLEX")
+            .WriteArguments(rev, "REV");
+        if (offset.HasValue && count.HasValue)
+        {
+            _ = command
+                .WriteArguments("LIMIT")
+                .WriteArguments(offset.Value.ToBytes())
+                .WriteArguments(count.Value.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket ZRank(SharpValue key, SharpValue member, bool withScores)
+    {
+        return new CommandPacket(SortedSetCommands._zrank, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(member)
+            .WriteArguments(withScores, "WITHSCORE");
+    }
+
+    internal static CommandPacket ZRem(SharpValue key, SharpValue member)
+    {
+        return new CommandPacket(SortedSetCommands._zrem, ZSet | WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(member);
+    }
+
+    internal static CommandPacket ZRem(SharpValue key, SharpValueSpan members)
+    {
+        if (members.IsEmpty) throw new NotSupportedException("Please specify at least one member.");
+        return new CommandPacket(SortedSetCommands._zrem, ZSet | WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(members);
+    }
+
+    internal static CommandPacket ZRemRangeByLex(SharpValue key, RangeArg min, RangeArg max)
+    {
+        return new CommandPacket(SortedSetCommands._zremrangebylex, ZSet | WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(min.Value)
+            .WriteArguments(max.Value);
+    }
+
+    internal static CommandPacket ZRemRangeByRank(SharpValue key, long start, long stop)
+    {
+        return new CommandPacket(SortedSetCommands._zremrangebyrank, ZSet | WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(start.ToBytes())
+            .WriteArguments(stop.ToBytes());
+    }
+
+    internal static CommandPacket ZRemRangeByScore(SharpValue key, RangeArg min, RangeArg max)
+    {
+        return new CommandPacket(SortedSetCommands._zremrangebyscore, ZSet | WithWrite)
+            .WriteKeys(key)
+            .WriteArguments(min.Value)
+            .WriteArguments(max.Value);
+    }
+
+    internal static CommandPacket ZRevRange(SharpValue key, long start, long stop, bool withScores)
+    {
+        return new CommandPacket(SortedSetCommands._zrevrange, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(start.ToBytes())
+            .WriteArguments(stop.ToBytes())
+            .WriteArguments(withScores, SortedSetCommands._withScoresString);
+    }
+
+    internal static CommandPacket ZRevRangeByLex(SharpValue key, RangeArg max, RangeArg min, ulong? offset, int? count)
+    {
+        var command = new CommandPacket(SortedSetCommands._zrevrangebylex, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(max.Value)
+            .WriteArguments(min.Value);
+        if (offset.HasValue && count.HasValue)
+        {
+            _ = command
+                .WriteArguments("LIMIT")
+                .WriteArguments(offset.Value.ToBytes())
+                .WriteArguments(count.Value.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket ZRevRangeByScore(SharpValue key, RangeArg max, RangeArg min, bool withScores, ulong? offset, int? count)
+    {
+        var command = new CommandPacket(SortedSetCommands._zrevrangebyscore, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(max.Value)
+            .WriteArguments(min.Value)
+            .WriteArguments(withScores, SortedSetCommands._withScoresString);
+        if (offset.HasValue && count.HasValue)
+        {
+            _ = command
+                .WriteArguments("LIMIT")
+                .WriteArguments(offset.Value.ToBytes())
+                .WriteArguments(count.Value.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket ZRevRank(SharpValue key, SharpValue member, bool withScores)
+    {
+        return new CommandPacket(SortedSetCommands._zrevrank, ZSet | WithRead | WithClientCaching)
+            .WriteKeys(key)
+            .WriteArguments(member)
+            .WriteArguments(withScores, "WITHSCORE");
+    }
+
+    internal static CommandPacket ZUnion(
+        SharpValue key1,
+        SharpValue key2,
+        double key1Weight,
+        double key2Weight,
+        Aggregate aggregate,
+        bool withScores = false)
+    {
+        var command = new CommandPacket(SortedSetCommands._zunion, ZSet | WithRead | WithClientCaching)
+            .WriteArguments("2")
+            .WriteKeys(key1)
+            .WriteKeys(key2)
+            .WriteArguments("WEIGHTS")
+            .WriteDouble(key1Weight)
+            .WriteDouble(key2Weight);
+
+        if (aggregate != Aggregate.Sum)
+        {
+            _ = command.WriteArguments("AGGREGATE");
+            switch (aggregate)
+            {
+                case Aggregate.Min:
+                    _ = command.WriteArguments("MIN");
+                    break;
+                case Aggregate.Max:
+                    _ = command.WriteArguments("MAX");
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return command.WriteArguments(withScores, SortedSetCommands._withScoresString);
+    }
+
+    internal static CommandPacket ZUnion(
+        SharpValueSpan keys,
+        ReadOnlySpan<double> weights,
+        Aggregate aggregate,
+        bool withScores = false)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        var command = new CommandPacket(SortedSetCommands._zunion, ZSet | WithRead | WithClientCaching)
+            .WriteArguments(keys.Count.ToBytes())
+            .WriteKeys(keys)
+            .WriteArguments("WEIGHTS");
+
+        if (weights.IsEmpty)
+        {
+            for (int i = 0; i < keys.Count; i++)
+            {
+                _ = command.WriteArguments("1");
+            }
+        }
+        else
+        {
+            if (weights.Length == keys.Count)
+            {
+                foreach (var item in weights)
+                {
+                    _ = command.WriteDouble(item);
+                }
+            }
+            else if (weights.Length > keys.Count)
+            {
+                int i = 0;
+                foreach (var item in weights)
+                {
+                    _ = command.WriteDouble(item);
+                    i++;
+                    if (i >= keys.Count) break;
+                }
+            }
+            else
+            {
+                int i = 0;
+                foreach (var item in weights)
+                {
+                    _ = command.WriteDouble(item);
+                    i++;
+                }
+                for (; i < keys.Count; i++)
+                {
+                    _ = command.WriteArguments("1");
+                }
+            }
+        }
+
+        if (aggregate != Aggregate.Sum)
+        {
+            _ = command.WriteArguments("AGGREGATE");
+            switch (aggregate)
+            {
+                case Aggregate.Min:
+                    _ = command.WriteArguments("MIN");
+                    break;
+                case Aggregate.Max:
+                    _ = command.WriteArguments("MAX");
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return command.WriteArguments(withScores, SortedSetCommands._withScoresString);
+    }
+
+    internal static CommandPacket ZUnionStore(
+        SharpValue destination,
+        SharpValue key1,
+        SharpValue key2,
+        double key1Weight,
+        double key2Weight,
+        Aggregate aggregate)
+    {
+        var command = new CommandPacket(SortedSetCommands._zunionstore, ZSet | WithWrite)
+            .WriteKeys(destination)
+            .WriteArguments("2")
+            .WriteKeys(key1)
+            .WriteKeys(key2)
+            .WriteArguments("WEIGHTS")
+            .WriteDouble(key1Weight)
+            .WriteDouble(key2Weight);
+
+        if (aggregate != Aggregate.Sum)
+        {
+            _ = command.WriteArguments("AGGREGATE");
+            switch (aggregate)
+            {
+                case Aggregate.Min:
+                    _ = command.WriteArguments("MIN");
+                    break;
+                case Aggregate.Max:
+                    _ = command.WriteArguments("MAX");
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return command;
+    }
+
+    internal static CommandPacket ZUnionStore(
+        SharpValue destination,
+        SharpValueSpan keys,
+        ReadOnlySpan<double> weights,
+        Aggregate aggregate)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        var command = new CommandPacket(SortedSetCommands._zunionstore, ZSet | WithWrite)
+            .WriteKeys(destination)
+            .WriteArguments(keys.Count.ToBytes())
+            .WriteKeys(keys)
+            .WriteArguments("WEIGHTS");
+
+        if (weights.IsEmpty)
+        {
+            for (int i = 0; i < keys.Count; i++)
+            {
+                _ = command.WriteArguments("1");
+            }
+        }
+        else
+        {
+            if (weights.Length == keys.Count)
+            {
+                foreach (var item in weights)
+                {
+                    _ = command.WriteDouble(item);
+                }
+            }
+            else if (weights.Length > keys.Count)
+            {
+                int i = 0;
+                foreach (var item in weights)
+                {
+                    _ = command.WriteDouble(item);
+                    i++;
+                    if (i >= keys.Count) break;
+                }
+            }
+            else
+            {
+                int i = 0;
+                foreach (var item in weights)
+                {
+                    _ = command.WriteDouble(item);
+                    i++;
+                }
+                for (; i < keys.Count; i++)
+                {
+                    _ = command.WriteArguments("1");
+                }
+            }
+        }
+
+        if (aggregate != Aggregate.Sum)
+        {
+            _ = command.WriteArguments("AGGREGATE");
+            switch (aggregate)
+            {
+                case Aggregate.Min:
+                    _ = command.WriteArguments("MIN");
+                    break;
+                case Aggregate.Max:
+                    _ = command.WriteArguments("MAX");
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return command;
+    }
+
+    internal static CommandPacket BZMPop(double timeout, SharpValue key, PopHow how, int count)
+    {
+        var command = new CommandPacket(SortedSetCommands._bzmpop, ZSet | WithWrite | WithBlocking)
+            .WriteArguments(timeout.ToBytes())
+            .WriteArguments("1")
+            .WriteKeys(key)
+            .WriteArguments(how is PopHow.Min, "MIN")
+            .WriteArguments(how is PopHow.Max, "MAX");
+        if (count > 1)
+        {
+            _ = command
+                .WriteArguments("COUNT")
+                .WriteArguments(count.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket BZMPop(double timeout, SharpValueSpan keys, PopHow how, int count)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        var command = new CommandPacket(SortedSetCommands._bzmpop, ZSet | WithWrite | WithBlocking)
+            .WriteArguments(timeout.ToBytes())
+            .WriteArguments(keys.Count.ToBytes())
+            .WriteKeys(keys)
+            .WriteArguments(how is PopHow.Min, "MIN")
+            .WriteArguments(how is PopHow.Max, "MAX");
+        if (count > 1)
+        {
+            _ = command
+                .WriteArguments("COUNT")
+                .WriteArguments(count.ToBytes());
+        }
+        return command;
+    }
+
+    internal static CommandPacket BZPopMax(int timeout, SharpValue key)
+    {
+        return new CommandPacket(SortedSetCommands._bzpopmax, ZSet | WithWrite | WithBlocking)
+            .WriteKeys(key)
+            .WriteArguments(timeout.ToBytes());
+    }
+
+    internal static CommandPacket BZPopMax(double timeout, SharpValue key)
+    {
+        return new CommandPacket(SortedSetCommands._bzpopmax, ZSet | WithWrite | WithBlocking)
+            .WriteKeys(key)
+            .WriteArguments(timeout.ToBytes());
+    }
+
+    internal static CommandPacket BZPopMax(int timeout, SharpValueSpan keys)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        return new CommandPacket(SortedSetCommands._bzpopmax, ZSet | WithWrite | WithBlocking)
+            .WriteKeys(keys)
+            .WriteArguments(timeout.ToBytes());
+    }
+
+    internal static CommandPacket BZPopMax(double timeout, SharpValueSpan keys)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        return new CommandPacket(SortedSetCommands._bzpopmax, ZSet | WithWrite | WithBlocking)
+            .WriteKeys(keys)
+            .WriteArguments(timeout.ToBytes());
+    }
+
+    internal static CommandPacket BZPopMin(int timeout, SharpValue key)
+    {
+        return new CommandPacket(SortedSetCommands._bzpopmin, ZSet | WithWrite | WithBlocking)
+            .WriteKeys(key)
+            .WriteArguments(timeout.ToBytes());
+    }
+
+    internal static CommandPacket BZPopMin(double timeout, SharpValue key)
+    {
+        return new CommandPacket(SortedSetCommands._bzpopmin, ZSet | WithWrite | WithBlocking)
+            .WriteKeys(key)
+            .WriteArguments(timeout.ToBytes());
+    }
+
+    internal static CommandPacket BZPopMin(int timeout, SharpValueSpan keys)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        return new CommandPacket(SortedSetCommands._bzpopmin, ZSet | WithWrite | WithBlocking)
+            .WriteKeys(keys)
+            .WriteArguments(timeout.ToBytes());
+    }
+
+    internal static CommandPacket BZPopMin(double timeout, SharpValueSpan keys)
+    {
+        if (keys.IsEmpty) throw new NotSupportedException("Please specify at least one Key.");
+        return new CommandPacket(SortedSetCommands._bzpopmin, ZSet | WithWrite | WithBlocking)
+            .WriteKeys(keys)
+            .WriteArguments(timeout.ToBytes());
+    }
+
+    internal static CommandPacket ZMove(SharpValue source, SharpValue destination, MoveHow how, double? scoreMin, double? scoreMax, long? count)
+    {
+        if (how == MoveHow.ByScore)
+        {
+            if (!scoreMin.HasValue || !scoreMax.HasValue)
+            {
+                throw new ArgumentException("In the BYSCORE mode, the maximum and minimum scores need to be specified.");
+            }
+        }
+        if (count.HasValue)
+        {
+            if (count.Value <= 0) throw new ArgumentOutOfRangeException(nameof(count));
+        }
+        var command = new CommandPacket(SortedSetCommands._zmove, ZSet | WithWrite)
+            .WriteKeys(source)
+            .WriteKeys(destination);
+        switch (how)
+        {
+            case MoveHow.Min:
+                _ = command.WriteArguments("MIN");
+                break;
+            case MoveHow.Max:
+                _ = command.WriteArguments("MAX");
+                break;
+            case MoveHow.ByScore:
+                _ = command
+                    .WriteArguments("BYSCORE")
+                    .WriteDouble(scoreMin!.Value)
+                    .WriteDouble(scoreMax!.Value);
+                break;
+            default:
+                break;
+        }
+        if (count.HasValue)
+        {
             return command
-                .WriteArg(minString)
-                .WriteArg(maxString);
+                .WriteArguments("COUNT")
+                .WriteArguments(count.Value.ToBytes());
         }
+        return command;
+    }
 
-        internal static CommandPacket ZDiff(bool withScores, params string[] keys)
+    internal static CommandPacket BZMove(SharpValue source, SharpValue destination, double timeout, MoveHow how, long? count)
+    {
+        if (how == MoveHow.ByScore)
         {
-            if (keys == null || keys.Length <= 0) throw new RedisException("Make sure you have at least one key");
-            return new CommandPacket("ZDIFF", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteArg(keys.Length)
-                .WriteKeys(keys)
-                .WriteArg(withScores, "WITHSCORES");
+            throw new ArgumentException("Does not support the BYSCORE mode.", nameof(how));
         }
-
-        internal static CommandPacket ZDiffStore(string destination, params string[] keys)
+        if (count.HasValue)
         {
-            if (keys == null || keys.Length <= 0) throw new RedisException("Make sure you have at least one key");
-            return new CommandPacket("ZDIFFSTORE", CommandMode.Write)
-                .WriteKey(destination)
-                .WriteArg(keys.Length)
-                .WriteKeys(keys);
+            if (count.Value <= 0) throw new ArgumentOutOfRangeException(nameof(count));
         }
-
-        internal static CommandPacket ZIncrBy<TIncrement, TMember>(string key, TIncrement increment, TMember member)
-#if NET7_0_OR_GREATER
-            where TIncrement : struct, System.Numerics.INumber<TIncrement>
-#else
-            where TIncrement : struct, System.IEquatable<TIncrement>
-#endif
-            where TMember : class
+        var command = new CommandPacket(SortedSetCommands._bzmove, ZSet | WithWrite | WithBlocking)
+            .WriteKeys(source)
+            .WriteKeys(destination);
+        switch (how)
         {
-            return new CommandPacket("ZINCRBY", CommandMode.Write)
-                .WriteKey(key)
-                .WriteArg(increment)
-                .WriteValue(member);
+            case MoveHow.Min:
+                _ = command.WriteArguments("MIN");
+                break;
+            case MoveHow.Max:
+                _ = command.WriteArguments("MAX");
+                break;
+            default:
+                break;
         }
-
-        private static CommandPacket ZInter(params string[] keys)
+        _ = command.WriteArguments(timeout.ToBytes());
+        if (count.HasValue)
         {
-            if (keys is null || keys.Length <= 0) throw new RedisException("Make sure you have at least one Key");
-            return new CommandPacket("ZINTER", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteArg(keys.Length)
-                .WriteKeys(keys);
-        }
-
-        internal static CommandPacket ZInter(Aggregate aggregate, bool withScores, params string[] keys)
-        {
-            var command = SortedSetCommands.ZInter(keys);
             return command
-                .WriteArg(aggregate == Aggregate.Min, "AGGREGATE", "MIN")
-                .WriteArg(aggregate == Aggregate.Max, "AGGREGATE", "MAX")
-                .WriteArg(withScores, "WITHSCORES");
+                .WriteArguments("COUNT")
+                .WriteArguments(count.Value.ToBytes());
         }
+        return command;
+    }
 
-        internal static CommandPacket ZInter<TWeight>(string[] keys, TWeight[] weights, Aggregate aggregate, bool withScores)
-#if NET7_0_OR_GREATER
-            where TWeight : struct, System.Numerics.INumber<TWeight>
-#else
-            where TWeight : struct, System.IEquatable<TWeight>
-#endif
-        {
-            if (keys.Length != weights.Length) throw new RedisException("The number of multiplier factors and keys does not agree");
-            var command = SortedSetCommands.ZInter(keys);
-            return command
-                .WriteArgs("WEIGHTS", weights)
-                .WriteArg(aggregate == Aggregate.Min, "AGGREGATE", "MIN")
-                .WriteArg(aggregate == Aggregate.Max, "AGGREGATE", "MAX")
-                .WriteArg(withScores, "WITHSCORES");
-        }
+    internal static CommandPacket ZMoveMember(SharpValue source, SharpValue destination, MoveWhen when, SharpValue member)
+    {
+        return SortedSetCommands.InitZMoveMember(source, destination, when)
+            .WriteArguments("1")
+            .WriteArguments(member);
+    }
 
-        internal static CommandPacket ZInterCard(ulong limit, params string[] keys)
-        {
-            if (keys is null || keys.Length <= 0) throw new RedisException("Make sure you have at least one Key");
-            return new CommandPacket("ZINTERCARD", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteArg(keys.Length)
-                .WriteKeys(keys)
-                .WriteArg(limit != 0, "LIMIT", limit);
-        }
+    internal static CommandPacket ZMoveMember(SharpValue source, SharpValue destination, MoveWhen when, SharpValueSpan members)
+    {
+        return SortedSetCommands.InitZMoveMember(source, destination, when)
+            .WriteArguments(members.Length.ToBytes())
+            .WriteArguments(members);
+    }
 
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket ZInterStore<TWeight>(string destination, string[] keys, TWeight[]? weights, Aggregate aggregate)
-#else
-        internal static CommandPacket ZInterStore<TWeight>(string destination, string[] keys, TWeight[] weights, Aggregate aggregate)
-#endif
-#if NET7_0_OR_GREATER
-            where TWeight : struct, System.Numerics.INumber<TWeight>
-#else
-            where TWeight : struct, System.IEquatable<TWeight>
-#endif
-        {
-            if (keys is null || keys.Length <= 0) throw new RedisException("Make sure you have at least one Key");
-            if (weights?.Length > 0)
-            {
-                if (keys.Length != weights.Length) throw new RedisException("The number of multiplier factors and keys does not agree");
-            }
-            return new CommandPacket("ZINTERSTORE", CommandMode.Write)
-                .WriteKey(destination)
-                .WriteArg(keys.Length)
-                .WriteKeys(keys)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteArgs(weights?.Length > 0, "WEIGHTS", weights!)
-#else
-                .WriteArgs(weights?.Length > 0, "WEIGHTS", weights)
-#endif
-                .WriteArg(aggregate == Aggregate.Min, "AGGREGATE", "MIN")
-                .WriteArg(aggregate == Aggregate.Max, "AGGREGATE", "MAX");
-        }
-
-        internal static CommandPacket ZLexCount(string key, string min, string max)
-        {
-            return new CommandPacket("ZLEXCOUNT", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteValue(min)
-                .WriteValue(max);
-        }
-
-        internal static CommandPacket ZMPop(string[] keys, MaxMin mm, ulong count)
-        {
-            if (keys is null || keys.Length <= 0) throw new RedisException("Make sure you have at least one Key");
-            if (count <= 0) throw new RedisException("Count cannot be 0");
-            return new CommandPacket("ZMPOP", CommandMode.Write)
-                .WriteArg(keys.Length)
-                .WriteKeys(keys)
-                .WriteArg(mm == MaxMin.Min, "MIN")
-                .WriteArg(mm == MaxMin.Max, "MAX")
-                .WriteArg(count > 1, "COUNT", count);
-        }
-
-        internal static CommandPacket ZMScore<TMember>(string key, params TMember[] members)
-            where TMember : class
-        {
-            if (members is null || members.Length <= 0) throw new RedisException("Please make sure there is at least one member");
-            return new CommandPacket("ZMSCORE", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteValues(members);
-        }
-
-        internal static CommandPacket ZPopMax(string key, ulong count)
-        {
-            if (count <= 0) throw new RedisException("Count cannot be 0");
-            return new CommandPacket("ZPOPMAX", CommandMode.Write)
-                .WriteKey(key)
-                .WriteArg(count > 1, count);
-        }
-
-        internal static CommandPacket ZPopMin(string key, ulong count)
-        {
-            if (count <= 0) throw new RedisException("Count cannot be 0");
-            return new CommandPacket("ZPOPMIN", CommandMode.Write)
-                .WriteKey(key)
-                .WriteArg(count > 1, count);
-        }
-
-        internal static CommandPacket ZRandMember(string key, long? count, bool withScores)
-        {
-            return new CommandPacket("ZRANDMEMBER", CommandMode.Read)
-                .WriteKey(key)
-                .WriteArg(count.HasValue, count ?? 0)
-                .WriteArg(withScores, "WITHSCORES");
-        }
-
-        internal static CommandPacket ZRange<TArg>(string key, TArg start, bool withStart, TArg stop, bool withStop, ZRangeBy? by, bool? rev, ulong? offset, ulong? count, bool withScores)
-        {
-            var startString = start?.ToString() ?? throw new RedisException("start is null!");
-            var stopString = stop?.ToString() ?? throw new RedisException("stop is null!");
-
-            var command = new CommandPacket("ZRANGE", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key);
-
-            if (start is double startDouble)
-            {
-                if (startDouble == double.PositiveInfinity)
-                {
-                    startString = "+inf";
-                }
-                else if (startDouble == double.NegativeInfinity)
-                {
-                    startString = "-inf";
-                }
-            }
-            else if (start is float startFloat)
-            {
-                if (startFloat == float.PositiveInfinity)
-                {
-                    startString = "+inf";
-                }
-                else if (startFloat == float.NegativeInfinity)
-                {
-                    startString = "-inf";
-                }
-            }
-
-            if (stop is double stopDouble)
-            {
-                if (stopDouble == double.PositiveInfinity)
-                {
-                    stopString = "+inf";
-                }
-                else if (stopDouble == double.NegativeInfinity)
-                {
-                    stopString = "-inf";
-                }
-            }
-            else if (stop is float maxFloat)
-            {
-                if (maxFloat == float.PositiveInfinity)
-                {
-                    stopString = "+inf";
-                }
-                else if (maxFloat == float.NegativeInfinity)
-                {
-                    stopString = "-inf";
-                }
-            }
-
-            if (by == ZRangeBy.ByScore && !withStart) startString = $"({startString}";
-            if (by == ZRangeBy.ByScore && !withStop) stopString = $"({stopString}";
-
-            return command
-                .WriteArg(startString)
-                .WriteArg(stopString)
-                .WriteArg(by == ZRangeBy.ByScore, "BYSCORE")
-                .WriteArg(by == ZRangeBy.ByLex, "BYLEX")
-                .WriteArg(rev.HasValue && rev.Value, "REV")
-                .WriteArg(offset.HasValue, "LIMIT", offset ?? 0)
-                .WriteArg(count.HasValue, count ?? 0)
-                .WriteArg(withScores, "WITHSCORES");
-        }
-
-        internal static CommandPacket ZRangeByLex(string key, string min, string max, ulong? offset, ulong? count)
-        {
-            return new CommandPacket("ZRANGEBYLEX", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteArg(min)
-                .WriteArg(max)
-                .WriteArg(offset.HasValue, "LIMIT", offset ?? 0)
-                .WriteArg(count.HasValue, count ?? 0);
-        }
-
-        internal static CommandPacket ZRangeByScore<TScore>(string key, TScore min, bool withMin, TScore max, bool withMax, ulong? offset, ulong? count, bool withScores)
-#if NET7_0_OR_GREATER
-            where TScore : struct, System.Numerics.INumber<TScore>
-#else
-            where TScore : struct, System.IEquatable<TScore>
-#endif
-        {
-            var minString = min.ToString() ?? throw new RedisException("min is null!");
-            var maxString = max.ToString() ?? throw new RedisException("max is null!");
-            var command = new CommandPacket("ZRANGEBYSCORE", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key);
-            if (min is double minDouble)
-            {
-                if (minDouble == double.PositiveInfinity)
-                {
-                    minString = "+inf";
-                }
-                else if (minDouble == double.NegativeInfinity)
-                {
-                    minString = "-inf";
-                }
-            }
-            else if (min is float minFloat)
-            {
-                if (minFloat == float.PositiveInfinity)
-                {
-                    minString = "+inf";
-                }
-                else if (minFloat == float.NegativeInfinity)
-                {
-                    minString = "-inf";
-                }
-            }
-
-            if (max is double maxDouble)
-            {
-                if (maxDouble == double.PositiveInfinity)
-                {
-                    maxString = "+inf";
-                }
-                else if (maxDouble == double.NegativeInfinity)
-                {
-                    maxString = "-inf";
-                }
-            }
-            else if (max is float maxFloat)
-            {
-                if (maxFloat == float.PositiveInfinity)
-                {
-                    maxString = "+inf";
-                }
-                else if (maxFloat == float.NegativeInfinity)
-                {
-                    maxString = "-inf";
-                }
-            }
-
-            if (!withMin) minString = $"({minString}";
-            if (!withMax) maxString = $"({maxString}";
-
-            return command
-                .WriteArg(minString)
-                .WriteArg(maxString)
-                .WriteArg(withScores, "WITHSCORES")
-                .WriteArg(offset.HasValue, "LIMIT", offset ?? 0)
-                .WriteArg(count.HasValue, count ?? 0);
-        }
-
-        internal static CommandPacket ZRangeStore<TArg>(string destination, string key, TArg start, bool withStart, TArg stop, bool withStop, ZRangeBy? by, bool? rev, ulong? offset, ulong? count)
-        {
-            var startString = start?.ToString() ?? throw new RedisException("start is null!");
-            var stopString = stop?.ToString() ?? throw new RedisException("stop is null!");
-
-            var command = new CommandPacket("ZRANGESTORE", CommandMode.Write)
-                .WriteKey(destination)
-                .WriteKey(key);
-
-            if (start is double startDouble)
-            {
-                if (startDouble == double.PositiveInfinity)
-                {
-                    startString = "+inf";
-                }
-                else if (startDouble == double.NegativeInfinity)
-                {
-                    startString = "-inf";
-                }
-            }
-            else if (start is float startFloat)
-            {
-                if (startFloat == float.PositiveInfinity)
-                {
-                    startString = "+inf";
-                }
-                else if (startFloat == float.NegativeInfinity)
-                {
-                    startString = "-inf";
-                }
-            }
-
-            if (stop is double stopDouble)
-            {
-                if (stopDouble == double.PositiveInfinity)
-                {
-                    stopString = "+inf";
-                }
-                else if (stopDouble == double.NegativeInfinity)
-                {
-                    stopString = "-inf";
-                }
-            }
-            else if (stop is float maxFloat)
-            {
-                if (maxFloat == float.PositiveInfinity)
-                {
-                    stopString = "+inf";
-                }
-                else if (maxFloat == float.NegativeInfinity)
-                {
-                    stopString = "-inf";
-                }
-            }
-
-            if (by == ZRangeBy.ByScore && !withStart) startString = $"({startString}";
-            if (by == ZRangeBy.ByScore && !withStop) stopString = $"({stopString}";
-
-            return command
-                .WriteArg(startString)
-                .WriteArg(stopString)
-                .WriteArg(by == ZRangeBy.ByScore, "BYSCORE")
-                .WriteArg(by == ZRangeBy.ByLex, "BYLEX")
-                .WriteArg(rev.HasValue && rev.Value, "REV")
-                .WriteArg(offset.HasValue, "LIMIT", offset ?? 0)
-                .WriteArg(count.HasValue, count ?? 0);
-        }
-
-        internal static CommandPacket ZRank<TMember>(string key, TMember member, bool withScore)
-            where TMember : class
-        {
-            return new CommandPacket("ZRANK", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteValue(member)
-                .WriteArg(withScore, "WITHSCORE");
-        }
-
-        internal static CommandPacket ZRem<TMember>(string key, params TMember[] members)
-            where TMember : class
-        {
-            return new CommandPacket("ZREM", CommandMode.Write)
-                .WriteKey(key)
-                .WriteValues(members);
-        }
-
-        internal static CommandPacket ZRemRangeByLex(string key, string min, string max)
-        {
-            return new CommandPacket("ZREMRANGEBYLEX", CommandMode.Write)
-                .WriteKey(key)
-                .WriteValue(min)
-                .WriteValue(max);
-        }
-
-        internal static CommandPacket ZRemRangeByRank(string key, long start, long stop)
-        {
-            return new CommandPacket("ZREMRANGEBYRANK", CommandMode.Write)
-                .WriteKey(key)
-                .WriteArg(start)
-                .WriteArg(stop);
-        }
-
-        internal static CommandPacket ZRemRangeByScore<TScore>(string key, TScore min, bool withMin, TScore max, bool withMax)
-#if NET7_0_OR_GREATER
-            where TScore : struct, System.Numerics.INumber<TScore>
-#else
-            where TScore : struct, System.IEquatable<TScore>
-#endif
-        {
-            var minString = min.ToString() ?? throw new RedisException("min is null!");
-            var maxString = max.ToString() ?? throw new RedisException("max is null!");
-            if (min is double minDouble)
-            {
-                if (minDouble == double.PositiveInfinity)
-                {
-                    minString = "+inf";
-                }
-                else if (minDouble == double.NegativeInfinity)
-                {
-                    minString = "-inf";
-                }
-            }
-            else if (min is float minFloat)
-            {
-                if (minFloat == float.PositiveInfinity)
-                {
-                    minString = "+inf";
-                }
-                else if (minFloat == float.NegativeInfinity)
-                {
-                    minString = "-inf";
-                }
-            }
-
-            if (max is double maxDouble)
-            {
-                if (maxDouble == double.PositiveInfinity)
-                {
-                    maxString = "+inf";
-                }
-                else if (maxDouble == double.NegativeInfinity)
-                {
-                    maxString = "-inf";
-                }
-            }
-            else if (max is float maxFloat)
-            {
-                if (maxFloat == float.PositiveInfinity)
-                {
-                    maxString = "+inf";
-                }
-                else if (maxFloat == float.NegativeInfinity)
-                {
-                    maxString = "-inf";
-                }
-            }
-
-            if (!withMin) minString = $"({minString}";
-            if (!withMax) maxString = $"({maxString}";
-            return new CommandPacket("ZREMRANGEBYSCORE", CommandMode.Write)
-                .WriteKey(key)
-                .WriteArg(minString)
-                .WriteArg(maxString);
-        }
-
-        internal static CommandPacket ZRevRange(string key, long start, long stop, bool withScore)
-        {
-            return new CommandPacket("ZREVRANGE", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteArg(start)
-                .WriteArg(stop)
-                .WriteArg(withScore, "WITHSCORES");
-        }
-
-        internal static CommandPacket ZRevRangeByLex(string key, string max, string min, ulong? offset = null, ulong? count = null)
-        {
-            return new CommandPacket("ZREVRANGEBYLEX", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteArg(max)
-                .WriteArg(min)
-                .WriteArg(offset.HasValue, "LIMIT", offset ?? 0)
-                .WriteArg(count.HasValue, count ?? 0);
-        }
-
-        internal static CommandPacket ZRevRangeByScore<TScore>(string key, TScore max, bool withMax, TScore min, bool withMin, bool withScores, ulong? offset = null, ulong? count = null)
-#if NET7_0_OR_GREATER
-            where TScore : struct, System.Numerics.INumber<TScore>
-#else
-            where TScore : struct, System.IEquatable<TScore>
-#endif
-        {
-            var minString = min.ToString() ?? throw new RedisException("min is null!");
-            var maxString = max.ToString() ?? throw new RedisException("max is null!");
-            if (min is double minDouble)
-            {
-                if (minDouble == double.PositiveInfinity)
-                {
-                    minString = "+inf";
-                }
-                else if (minDouble == double.NegativeInfinity)
-                {
-                    minString = "-inf";
-                }
-            }
-            else if (min is float minFloat)
-            {
-                if (minFloat == float.PositiveInfinity)
-                {
-                    minString = "+inf";
-                }
-                else if (minFloat == float.NegativeInfinity)
-                {
-                    minString = "-inf";
-                }
-            }
-
-            if (max is double maxDouble)
-            {
-                if (maxDouble == double.PositiveInfinity)
-                {
-                    maxString = "+inf";
-                }
-                else if (maxDouble == double.NegativeInfinity)
-                {
-                    maxString = "-inf";
-                }
-            }
-            else if (max is float maxFloat)
-            {
-                if (maxFloat == float.PositiveInfinity)
-                {
-                    maxString = "+inf";
-                }
-                else if (maxFloat == float.NegativeInfinity)
-                {
-                    maxString = "-inf";
-                }
-            }
-
-            if (!withMin) minString = $"({minString}";
-            if (!withMax) maxString = $"({maxString}";
-
-            return new CommandPacket("ZREVRANGEBYSCORE", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteArg(maxString)
-                .WriteArg(minString)
-                .WriteArg(withScores, "WITHSCORES")
-                .WriteArg(offset.HasValue, "LIMIT", offset ?? 0)
-                .WriteArg(count.HasValue, count ?? 0);
-        }
-
-        internal static CommandPacket ZRevRank<TMember>(string key, TMember member, bool withScore)
-            where TMember : class
-        {
-            return new CommandPacket("ZREVRANK", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteValue(member)
-                .WriteArg(withScore, "WITHSCORE");
-        }
-
-        internal static CommandPacket ZScore<TMember>(string key, TMember member)
-            where TMember : class
-        {
-            return new CommandPacket("ZSCORE", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteKey(key)
-                .WriteValue(member);
-        }
-
-        private static CommandPacket ZUnion(params string[] keys)
-        {
-            if (keys is null || keys.Length <= 0) throw new RedisException("Make sure you have at least one Key");
-            return new CommandPacket("ZUNION", CommandMode.Read | CommandMode.WithClientSideCache)
-                .WriteArg(keys.Length)
-                .WriteKeys(keys);
-        }
-
-        internal static CommandPacket ZUnion(Aggregate aggregate, bool withScores, params string[] keys)
-        {
-            var command = SortedSetCommands.ZUnion(keys);
-            return command
-                .WriteArg(aggregate == Aggregate.Min, "AGGREGATE", "MIN")
-                .WriteArg(aggregate == Aggregate.Max, "AGGREGATE", "MAX")
-                .WriteArg(withScores, "WITHSCORES");
-        }
-
-        internal static CommandPacket ZUnion<TWeight>(string[] keys, TWeight[] weights, Aggregate aggregate, bool withScores)
-#if NET7_0_OR_GREATER
-            where TWeight : struct, System.Numerics.INumber<TWeight>
-#else
-            where TWeight : struct, System.IEquatable<TWeight>
-#endif
-        {
-            if (keys.Length != weights.Length) throw new RedisException("The number of multiplier factors and keys does not agree");
-            var command = SortedSetCommands.ZUnion(keys);
-            return command
-                .WriteArgs("WEIGHTS", weights)
-                .WriteArg(aggregate == Aggregate.Min, "AGGREGATE", "MIN")
-                .WriteArg(aggregate == Aggregate.Max, "AGGREGATE", "MAX")
-                .WriteArg(withScores, "WITHSCORES");
-        }
-
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket ZUnionStore<TWeight>(string destination, string[] keys, TWeight[]? weights, Aggregate aggregate)
-#else
-        internal static CommandPacket ZUnionStore<TWeight>(string destination, string[] keys, TWeight[] weights, Aggregate aggregate)
-#endif
-#if NET7_0_OR_GREATER
-            where TWeight : struct, System.Numerics.INumber<TWeight>
-#else
-            where TWeight : struct, System.IEquatable<TWeight>
-#endif
-        {
-            if (keys is null || keys.Length <= 0) throw new RedisException("Make sure you have at least one Key");
-            if (weights?.Length > 0)
-            {
-                if (keys.Length != weights.Length) throw new RedisException("The number of multiplier factors and keys does not agree");
-            }
-            return new CommandPacket("ZUNIONSTORE", CommandMode.Write)
-                .WriteKey(destination)
-                .WriteArg(keys.Length)
-                .WriteKeys(keys)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteArgs(weights?.Length > 0, "WEIGHTS", weights!)
-#else
-                .WriteArgs(weights?.Length > 0, "WEIGHTS", weights)
-#endif
-                .WriteArg(aggregate == Aggregate.Min, "AGGREGATE", "MIN")
-                .WriteArg(aggregate == Aggregate.Max, "AGGREGATE", "MAX");
-        }
-
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-        internal static CommandPacket ZScan(string key, long cursor, string? pattern, ulong? count)
-#else
-        internal static CommandPacket ZScan(string key, long cursor, string pattern, ulong? count)
-#endif
-        {
-            return new CommandPacket("ZSCAN", CommandMode.Read)
-                .WriteKey(key)
-                .WriteArg(cursor)
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                .WriteArg(!string.IsNullOrEmpty(pattern), "MATCH", pattern!)
-#else
-                .WriteArg(!string.IsNullOrEmpty(pattern), "MATCH", pattern)
-#endif
-                .WriteArg(count.HasValue, "COUNT", count ?? 0)
-                ;
-        }
-
-        internal static CommandPacket BZMPop(double timeout, string[] keys, MaxMin mm, ulong count)
-        {
-            if (count <= 0) throw new RedisException("Count cannot be 0");
-            return new CommandPacket("BZMPOP", CommandMode.Write | CommandMode.WithBlock)
-                .WriteArg(timeout)
-                .WriteArg(keys.Length)
-                .WriteKeys(keys)
-                .WriteArg(mm == MaxMin.Min, "MIN")
-                .WriteArg(mm == MaxMin.Max, "MAX")
-                .WriteArg(count > 1, "COUNT", count);
-        }
-
-        internal static CommandPacket BZPopMax(string[] keys, string timeout)
-        {
-            return new CommandPacket("BZPOPMAX", CommandMode.Write | CommandMode.WithBlock)
-                .WriteKeys(keys)
-                .WriteArg(timeout);
-        }
-
-        internal static CommandPacket BZPopMin(string[] keys, string timeout)
-        {
-            return new CommandPacket("BZPOPMIN", CommandMode.Write | CommandMode.WithBlock)
-                .WriteKeys(keys)
-                .WriteArg(timeout);
-        }
+    private static CommandPacket InitZMoveMember(SharpValue source, SharpValue destination, MoveWhen when)
+    {
+        return new CommandPacket(SortedSetCommands._zmovemember, ZSet | WithWrite)
+            .WriteKeys(source)
+            .WriteKeys(destination)
+            .WriteArguments(when == MoveWhen.NX, "NX")
+            .WriteArguments(when == MoveWhen.XX, "XX")
+            .WriteArguments("MEMBERS");
     }
 }
