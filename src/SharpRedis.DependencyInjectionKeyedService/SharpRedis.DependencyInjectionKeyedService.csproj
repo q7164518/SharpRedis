@@ -5,7 +5,7 @@
     <LangVersion>15.0</LangVersion>
     <Title>SharpRedis.DependencyInjectionKeyedService</Title>
     <PackageId>SharpRedis.DependencyInjectionKeyedService</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>Kwong</Authors>
     <Description>A pure asynchronous driver of high performance high throughput Redis driver for C#</Description>
     <PackageTags>SharpRedis.DependencyInjectionKeyedService;SharpRedis.DependencyInjection;SharpRedis;sharpredis;Redis;redis;Redics;RedisClient;RedisHelper;csredis;csharpredis;redisclients;C#Redis;Kwong;kwong;q7164518</PackageTags>
