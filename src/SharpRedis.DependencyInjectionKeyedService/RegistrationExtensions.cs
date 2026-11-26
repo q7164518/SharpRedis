@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using SharpRedis.Provider.Standard;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SharpRedis.DependencyInjectionKeyedService;
 
@@ -65,7 +66,13 @@ public static class RegistrationExtensions
     /// <para>命名注册, 不命名注册传null</para>
     /// </param>
     /// <returns></returns>
-    public static IServiceCollection AddSharpRedisStandalone<TCache>(
+    public static IServiceCollection AddSharpRedisStandalone
+#if !NETSTANDARD
+        <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCache>
+#else
+        <TCache>
+#endif
+    (
         this IServiceCollection services,
         string connectionString,
 #if MODERN_NET
@@ -156,7 +163,13 @@ public static class RegistrationExtensions
     /// <para>命名注册, 不命名注册传null</para>
     /// </param>
     /// <returns></returns>
-    public static IServiceCollection AddSharpRedisStandalone<TCache>(
+    public static IServiceCollection AddSharpRedisStandalone
+#if !NETSTANDARD
+        <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCache>
+#else
+        <TCache>
+#endif
+    (
         this IServiceCollection services,
         Action<StandaloneConnectionOptions> optionsAction,
 #if MODERN_NET
@@ -266,7 +279,13 @@ public static class RegistrationExtensions
     /// <para>命名注册, 不命名注册传null</para>
     /// </param>
     /// <returns></returns>
-    public static IServiceCollection AddSharpRedisMasterSlave<TCache>(
+    public static IServiceCollection AddSharpRedisMasterSlave
+#if !NETSTANDARD
+        <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCache>
+#else
+        <TCache>
+#endif
+    (
         this IServiceCollection services,
         string masterConnectionString,
         string[] slaveConnectionStrings,
@@ -362,7 +381,13 @@ public static class RegistrationExtensions
     /// <para>命名注册, 不命名注册传null</para>
     /// </param>
     /// <returns></returns>
-    public static IServiceCollection AddSharpRedisMasterSlave<TCache>(
+    public static IServiceCollection AddSharpRedisMasterSlave
+#if !NETSTANDARD
+        <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCache>
+#else
+        <TCache>
+#endif
+    (
         this IServiceCollection services,
         Action<MasterSlaveConnectionOptions> optionsAction,
 #if MODERN_NET
@@ -475,7 +500,13 @@ public static class RegistrationExtensions
     /// <para>命名注册, 不命名注册传null</para>
     /// </param>
     /// <returns></returns>
-    public static IServiceCollection AddSharpRedisSentinel<TCache>(
+    public static IServiceCollection AddSharpRedisSentinel
+#if !NETSTANDARD
+        <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCache>
+#else
+        <TCache>
+#endif
+    (
         this IServiceCollection services,
         bool enableReadWriteSeparation,
         string masterConnectionString,
@@ -575,7 +606,13 @@ public static class RegistrationExtensions
     /// <para>命名注册, 不命名注册传null</para>
     /// </param>
     /// <returns></returns>
-    public static IServiceCollection AddSharpRedisSentinel<TCache>(
+    public static IServiceCollection AddSharpRedisSentinel
+#if !NETSTANDARD
+        <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCache>
+#else
+        <TCache>
+#endif
+    (
         this IServiceCollection services,
         bool enableReadWriteSeparation,
         Action<SentinelConnectionOptions> optionsAction,
@@ -686,7 +723,13 @@ public static class RegistrationExtensions
     /// <para>命名注册, 不命名注册传null</para>
     /// </param>
     /// <returns></returns>
-    public static IServiceCollection AddSharpRedisCluster<TCache>(
+    public static IServiceCollection AddSharpRedisCluster
+#if !NETSTANDARD
+        <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCache>
+#else
+        <TCache>
+#endif
+    (
         this IServiceCollection services,
         bool enableReadWriteSeparation,
         string nodeConnectionString,
@@ -789,7 +832,13 @@ public static class RegistrationExtensions
     /// <para>命名注册, 不命名注册传null</para>
     /// </param>
     /// <returns></returns>
-    public static IServiceCollection AddSharpRedisCluster<TCache>(
+    public static IServiceCollection AddSharpRedisCluster
+#if !NETSTANDARD
+        <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCache>
+#else
+        <TCache>
+#endif
+    (
         this IServiceCollection services,
         bool enableReadWriteSeparation,
         Action<ClusterConnectionOptions> optionsAction,
@@ -831,7 +880,7 @@ public static class RegistrationExtensions
         }
         return services.RegisterTypes(serviceName);
     }
-    #endregion
+#endregion
 
 #if MODERN_NET
     private static IServiceCollection RegisterTypes(this IServiceCollection services, string? serviceName)

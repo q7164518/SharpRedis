@@ -15,8 +15,8 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageProjectUrl>https://github.com/q7164518/SharpRedis</PackageProjectUrl>
     <RepositoryUrl>https://github.com/q7164518/SharpRedis</RepositoryUrl>
+    <IsAotCompatible>true</IsAotCompatible>
     <RepositoryType>git</RepositoryType>
-    <VerifyReferenceAotCompatibility>true</VerifyReferenceAotCompatibility>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>SharpRedis.png</PackageIcon>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
