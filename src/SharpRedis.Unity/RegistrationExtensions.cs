@@ -264,11 +264,11 @@ public static class RegistrationExtensions
     /// <param name="container">The Unity container that owns the registration.
     /// <para>持有此注册的 Unity 容器。</para>
     /// </param>
-    /// <param name="enableReadWriteSeparation">Whether to route eligible reads to replicas.
-    /// <para>是否将符合条件的读命令路由到从节点。</para>
+    /// <param name="enableReadWriteSeparation">Whether to read from replicas. When false, all operations use the master.
+    /// <para>是否开启读写分离；false 时不连接从节点，所有操作使用主节点，并自动跟随主节点切换。</para>
     /// </param>
-    /// <param name="masterConnectionString">The monitored primary name and Redis data node connection settings.
-    /// <para>哨兵监控的主节点名称和 Redis 数据节点连接配置。</para>
+    /// <param name="masterConnectionString">Master node connection string, for example: mastername=mymaster,password=123456
+    /// <para>主节点连接字符串, 如: mastername=mymaster,password=123456</para>
     /// </param>
     /// <param name="sentinelConnectionStrings">The connection strings for the Sentinel endpoints.
     /// <para>哨兵节点的连接字符串数组。</para>
@@ -302,11 +302,11 @@ public static class RegistrationExtensions
     /// <param name="container">The Unity container that owns the registration.
     /// <para>持有此注册的 Unity 容器。</para>
     /// </param>
-    /// <param name="enableReadWriteSeparation">Whether to route eligible reads to replicas.
-    /// <para>是否将符合条件的读命令路由到从节点。</para>
+    /// <param name="enableReadWriteSeparation">Whether to read from replicas. When false, all operations use the master.
+    /// <para>是否开启读写分离；false 时不连接从节点，所有操作使用主节点，并自动跟随主节点切换。</para>
     /// </param>
-    /// <param name="masterConnectionString">The monitored primary name and Redis data node connection settings.
-    /// <para>哨兵监控的主节点名称和 Redis 数据节点连接配置。</para>
+    /// <param name="masterConnectionString">Master node connection string, for example: mastername=mymaster,password=123456
+    /// <para>主节点连接字符串, 如: mastername=mymaster,password=123456</para>
     /// </param>
     /// <param name="sentinelConnectionStrings">The connection strings for the Sentinel endpoints.
     /// <para>哨兵节点的连接字符串数组。</para>
@@ -341,8 +341,8 @@ public static class RegistrationExtensions
     /// <param name="container">The Unity container that owns the registration.
     /// <para>持有此注册的 Unity 容器。</para>
     /// </param>
-    /// <param name="enableReadWriteSeparation">Whether to route eligible reads to replicas.
-    /// <para>是否将符合条件的读命令路由到从节点。</para>
+    /// <param name="enableReadWriteSeparation">Whether to read from replicas. When false, all operations use the master.
+    /// <para>是否开启读写分离；false 时不连接从节点，所有操作使用主节点，并自动跟随主节点切换。</para>
     /// </param>
     /// <param name="optionsAction">The callback that configures the connection.
     /// <para>用于配置连接的回调。</para>
@@ -371,8 +371,8 @@ public static class RegistrationExtensions
     /// <param name="container">The Unity container that owns the registration.
     /// <para>持有此注册的 Unity 容器。</para>
     /// </param>
-    /// <param name="enableReadWriteSeparation">Whether to route eligible reads to replicas.
-    /// <para>是否将符合条件的读命令路由到从节点。</para>
+    /// <param name="enableReadWriteSeparation">Whether to read from replicas. When false, all operations use the master.
+    /// <para>是否开启读写分离；false 时不连接从节点，所有操作使用主节点，并自动跟随主节点切换。</para>
     /// </param>
     /// <param name="optionsAction">The callback that configures the connection.
     /// <para>用于配置连接的回调。</para>
@@ -404,8 +404,8 @@ public static class RegistrationExtensions
     /// <param name="container">The Unity container that owns the registration.
     /// <para>持有此注册的 Unity 容器。</para>
     /// </param>
-    /// <param name="enableReadWriteSeparation">Whether to route eligible reads to replicas.
-    /// <para>是否将符合条件的读命令路由到从节点。</para>
+    /// <param name="enableReadWriteSeparation">Whether to read from replicas. When false, all operations use the master.
+    /// <para>是否开启读写分离；false 时不连接从节点，所有操作使用主节点，并自动跟随主节点切换。</para>
     /// </param>
     /// <param name="nodeConnectionString">The connection string for a seed node used to discover the cluster.
     /// <para>用于发现集群拓扑的入口节点连接字符串。</para>
@@ -438,8 +438,8 @@ public static class RegistrationExtensions
     /// <param name="container">The Unity container that owns the registration.
     /// <para>持有此注册的 Unity 容器。</para>
     /// </param>
-    /// <param name="enableReadWriteSeparation">Whether to route eligible reads to replicas.
-    /// <para>是否将符合条件的读命令路由到从节点。</para>
+    /// <param name="enableReadWriteSeparation">Whether to read from replicas. When false, all operations use the master.
+    /// <para>是否开启读写分离；false 时不连接从节点，所有操作使用主节点，并自动跟随主节点切换。</para>
     /// </param>
     /// <param name="nodeConnectionString">The connection string for a seed node used to discover the cluster.
     /// <para>用于发现集群拓扑的入口节点连接字符串。</para>
@@ -473,8 +473,8 @@ public static class RegistrationExtensions
     /// <param name="container">The Unity container that owns the registration.
     /// <para>持有此注册的 Unity 容器。</para>
     /// </param>
-    /// <param name="enableReadWriteSeparation">Whether to route eligible reads to replicas.
-    /// <para>是否将符合条件的读命令路由到从节点。</para>
+    /// <param name="enableReadWriteSeparation">Whether to read from replicas. When false, all operations use the master.
+    /// <para>是否开启读写分离；false 时不连接从节点，所有操作使用主节点，并自动跟随主节点切换。</para>
     /// </param>
     /// <param name="optionsAction">The callback that configures the connection.
     /// <para>用于配置连接的回调。</para>
@@ -503,8 +503,8 @@ public static class RegistrationExtensions
     /// <param name="container">The Unity container that owns the registration.
     /// <para>持有此注册的 Unity 容器。</para>
     /// </param>
-    /// <param name="enableReadWriteSeparation">Whether to route eligible reads to replicas.
-    /// <para>是否将符合条件的读命令路由到从节点。</para>
+    /// <param name="enableReadWriteSeparation">Whether to read from replicas. When false, all operations use the master.
+    /// <para>是否开启读写分离；false 时不连接从节点，所有操作使用主节点，并自动跟随主节点切换。</para>
     /// </param>
     /// <param name="optionsAction">The callback that configures the connection.
     /// <para>用于配置连接的回调。</para>
@@ -530,7 +530,11 @@ public static class RegistrationExtensions
 
     private static IUnityContainer RegisterClient(IUnityContainer container, string? serviceName, Func<Redis> connect)
     {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(container);
+#else
         if (container is null) throw new ArgumentNullException(nameof(container));
+#endif
 
         var redis = connect();
         try
@@ -554,7 +558,11 @@ public static class RegistrationExtensions
         where TCache : ClientCachingBase
         where TOptions : BasalConnectionOptions
     {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(container);
+#else
         if (container is null) throw new ArgumentNullException(nameof(container));
+#endif
 
         // Each Redis client owns its cache. A private transient Unity registration
         // gives each creation attempt a fresh cache and still allows dependency injection.
